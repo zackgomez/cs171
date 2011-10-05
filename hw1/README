@@ -1,3 +1,136 @@
+matrix code is in ../zmatrix folder - including test code
+parsers/lexers for each program are labeled as prog.{yyp, lex}.
+
+Everything is pretty standard I suppose.
+
+
+output from matrix library test:
+Empty matrix:
+[[0 0 0]
+ [0 0 0]
+ [0 0 0]]
+
+
+Testing scalar ops... ID * 5 / 2 + 3 - 1.5:
+[[4 1.5 1.5]
+ [1.5 4 1.5]
+ [1.5 1.5 4]]
+
+
+Transposition test
+[[4 1.5 1.5]
+ [1.5 4 5]
+ [1.5 1.5 4]]
+   TRANSPOSE   
+[[4 1.5 1.5]
+ [1.5 4 1.5]
+ [1.5 5 4]]
+
+
+Simple vector:
+[[1]
+ [2]
+ [3]]
+
+
+Multiplication test
+[[4 1.5 1.5]
+ [1.5 4 5]
+ [1.5 1.5 4]]
+ *** 
+[[1]
+ [2]
+ [3]]
+ === 
+[[11.5]
+ [24.5]
+ [16.5]]
+
+
+Multiplication test
+[[4 1.5 1.5]
+ [1.5 4 5]
+ [1.5 1.5 4]]
+ *** 
+[[4 1.5 1.5]
+ [1.5 4 1.5]
+ [1.5 5 4]]
+ === 
+[[20.5 19.5 14.25]
+ [19.5 43.25 28.25]
+ [14.25 28.25 20.5]]
+
+
+Magnitude test
+[[1]
+ [2]
+ [3]]
+ MAG 
+3.74166
+
+Normalization test
+[[1]
+ [2]
+ [3]]
+ NORMALIZED 
+[[0.267261]
+ [0.534522]
+ [0.801784]]
+ DOT OF ITSELF (should be 1) == 1
+
+
+Identity matrix
+[[1 0 0 0]
+ [0 1 0 0]
+ [0 0 1 0]
+ [0 0 0 1]]
+
+
+Inverse Matrix Test
+[[5 4 3]
+ [8 1 3]
+ [9 5 7]]
+ INVERSE 
+[[0.126984 0.206349 -0.142857]
+ [0.460317 -0.126984 -0.142857]
+ [-0.492063 -0.174603 0.428571]]
+A * Ainv =
+[[1 0 -1.19209e-07]
+ [0 1 -1.19209e-07]
+ [0 2.38419e-07 1]]
+
+
+
+Translation matrix test
+Translating (4,5,6)
+[[1 0 0 4]
+ [0 1 0 5]
+ [0 0 1 6]
+ [0 0 0 1]]
+
+
+
+Scaling matrix test
+Scaling by <4 5 6>
+[[4 0 0 0]
+ [0 5 0 0]
+ [0 0 6 0]
+ [0 0 0 1]]
+
+
+
+Rotation matrix test
+Rotating by 45deg around <1 1 1>
+[[0.804738 -0.310617 0.505879 0]
+ [0.505879 0.804738 -0.310617 0]
+ [-0.310617 0.505879 0.804738 0]
+ [0 0 0 1]]
+
+
+
+
+
+
 output from transform4x4 on the sample files:
 
 $ ./transform4x4 transform-zaxis.tf

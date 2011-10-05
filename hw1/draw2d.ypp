@@ -40,7 +40,7 @@ polyline:
     ;
 
 points:
-    point points
+    points point
     | point
     ;
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <ostream>
-
+#include <cmath>
 #include <iostream>
 
 class Canvas
@@ -39,14 +39,12 @@ public:
         delete[] b_;
     }
 
-    void drawPoint(float x, float y, float r, float g, float b)
+    void drawPixel(unsigned x, unsigned y, float r, float g, float b)
     {
-        // Don't draw the point if it's not in range
-        if (x < xmin_ || x > xmax_ || y < ymin_ || y > ymax_)
+        if (x < 0 || x >= xres_ || y < 0 || y >= yres_)
             return;
-        int xi = (x - xmin_) / (xmax_ - xmin_) * xres_;
-        int yi = (y - ymin_) / (ymax_ - ymin_) * yres_;
-        int i = xi*yres_ + yi;
+
+        int i = y * xres_ + x;
         r_[i] = r;
         g_[i] = g;
         b_[i] = b;
@@ -57,7 +55,36 @@ public:
         std::cout << "Drawing line from (" << x1 << ',' << y1 << ") to ("
             << x2 << ',' << y2 << ")\n";
 
-        // TODO actually draw using drawPoint
+        if (x1 > x2)
+        {
+            std::swap(x1, x2);
+            std::swap(y1, y2);
+        }
+
+        // Convert to pixel coords
+        int x1p = floor((x1 - xmin_) / (xmax_ - xmin_) * xres_);
+        int y1p = floor((y1 - ymin_) / (ymax_ - ymin_) * yres_);
+        int x2p = floor((x2 - xmin_) / (xmax_ - xmin_) * xres_);
+        int y2p = floor((y2 - ymin_) / (ymax_ - ymin_) * yres_);
+        std::cout << "Drawing line from pixels (" << x1p << ',' << y1p << ") to ("
+            << x2p << ',' << y2p << ")\n";
+
+        float slope = (y2 - y1) / (x2 - x1);
+        if (fabs(slope) <= 1)
+        {
+            drawLineHelperX(x1p, x2p, y1p, y2p);
+        }
+        else
+        {
+            if (y1 > y2)
+            {
+                std::swap(x1p, x2p);
+                std::swap(y1p, y2p);
+            }
+            drawLineHelperY(x1p, x2p, y1p, y2p);
+        }
+
+        std::cout << " ---- Done Drawing Line ---- \n";
 
     }
 
@@ -86,5 +113,64 @@ private:
     float *r_;
     float *g_;
     float *b_;
+
+    void drawLineHelperX(int x1, int x2, int y1, int y2)
+    {
+        std::cout << "Using xstep line helper\n";
+
+        // Compute bresenham algo parameters
+        int dy = y2 - y1;
+        int ystep = dy > 0 ? 1 : -1;
+        dy = dy > 0 ? dy : -dy;
+        int dxdy = dy + x1 - x2;
+        int F = dxdy;
+        std::cout << "Bresenham parameters: dy = " << dy << " dxdy = " << dxdy << " F = " << F << '\n';
+
+        int y = y1;
+        for (int x = x1; x <= x2; x++)
+        {
+            std::cout << "Drawing pixel (" << x << ',' << y << ").  F = " << F << '\n';
+            drawPixel(x, yres_ - y, 1, 1, 1);
+            if (F < 0)
+                if (dy >= 0) F += dy;
+                else F -= dy;
+            else
+            {
+                y += ystep;
+                F += dxdy;
+            }
+        }
+    }
+
+    void drawLineHelperY(int x1, int x2, int y1, int y2)
+    {
+        std::cout << "Using ystep line helper\n";
+
+        // Compute bresenham algo parameters
+        int dx   = x2 - x1;
+        int xstep = 1;
+        if (dx < 0)
+        {
+            dx = -dx;
+            xstep = -1;
+        }
+        int dydx = dx + y1 - y2;
+        int F    = dydx;
+        std::cout << "Bresenham parameters: dx = " << dx << " dydx = " << dydx << " F = " << F << '\n';
+
+        int x = x1;
+        for (int y = y1; y <= y2; y++)
+        {
+            std::cout << "Drawing pixel (" << x << ',' << y << ").  F = " << F << '\n';
+            drawPixel(x, yres_ - y, 1, 1, 1);
+            if (F < 0)
+                F += dx;
+            else
+            {
+                x += xstep;
+                F += dydx;
+            }
+        }
+    }
 };
 
