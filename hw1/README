@@ -1,0 +1,28 @@
+output from transform4x4 on the sample files:
+
+$ ./transform4x4 transform-zaxis.tf
+Transform matrix:
+[[1 0 0 0]
+[0 1 0 0]
+[0 0 1 0]
+[0 0 0 1]]
+
+$ ./transform4x4 transform1.tf 
+Transform matrix:
+[[0.877583 0 0.479426 0]
+[0 1 0 0]
+[-0.479426 0 0.877583 1]
+[0 0 0 1]]
+
+$ ./transform4x4 transform2.tf 
+Transform matrix:
+[[-0.629987 -1.58026 3.158 3]
+[1.86273 -0.0346004 1.4556 2]
+[-0.36516 2.54982 1.97693 1]
+[0 0 0 1]]
+
+$ ./transform4x4 transform-error-msg.tf 
+Parse error: CANNOT ROTATE AROUND 0 VECTOR
+transform4x4: zmatrix/transforms.h:28: Matrix4 make_rotation(float, float, float, float): Assertion `!(x == 0 && y == 0 && z == 0)' failed.
+Aborted
+

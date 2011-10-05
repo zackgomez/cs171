@@ -1,0 +1,69 @@
+%{
+#include <FlexLexer.h>
+#include <string>
+#include "transforms.h"
+#include "matrix.h"
+#include <iostream>
+
+int yyerror(const char *s);
+int yylex();
+
+static Matrix4 transform_matrix = make_identity<float, 4>();
+%}
+
+%union
+{
+    float fval;
+}
+
+%defines
+
+%token <fval> NUM
+%token TRANSLATION
+%token ROTATION
+%token SCALEFACTOR
+
+%%
+
+file:
+    transforms {}
+    ;
+
+transforms:
+    transforms transform
+    | transform
+    ;
+
+transform:
+    TRANSLATION NUM NUM NUM { transform_matrix = transform_matrix * make_translation($2, $3, $4); }
+    | ROTATION NUM NUM NUM NUM { if ($2 == 0 && $3 == 0 && $4 == 0) yyerror("CANNOT ROTATE AROUND 0 VECTOR"); transform_matrix = transform_matrix * make_rotation($2, $3, $4, $5); }
+    | SCALEFACTOR NUM NUM NUM { transform_matrix = transform_matrix * make_scaling($2, $3, $4); }
+    ;
+
+%%
+
+static FlexLexer *lexer;
+
+int yyerror(const char *s)
+{
+    std::cerr << "Parse error: " << s << std::endl;
+    return 0;
+}
+
+int yylex()
+{
+    return lexer->yylex();
+}
+
+Matrix4 parse_file(std::istream &input)
+{
+    lexer = new yyFlexLexer(&input);
+    if (yyparse())
+    {
+        std::cerr << "Parse Failed!" << std::endl;
+        exit(1);
+    }
+
+    delete lexer;
+    return transform_matrix;
+}

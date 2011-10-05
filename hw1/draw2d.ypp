@@ -1,0 +1,83 @@
+%{
+#include <FlexLexer.h>
+#include <iostream>
+#include "canvas.h"
+
+int yyerror(const char *s);
+int yylex();
+
+// Canvas we're drawing on
+static Canvas *canv;
+// The current position of the cursor
+static float x, y;
+static bool first = true;
+
+%}
+
+%union
+{
+    float fval;
+}
+
+%defines
+
+%token <fval> NUM
+%token POLYLINE
+
+%%
+
+file:
+    polylines
+    ;
+
+polylines:
+    polylines polyline
+    | polyline
+    ;
+
+polyline:
+    POLYLINE points {first = true; /* Read first point as starting position */}
+    ;
+
+points:
+    point points
+    | point
+    ;
+
+point:
+    NUM NUM { if (!first) // Don't draw a line for the first point
+                  canv->drawLine(x, y, $1, $2);
+              x = $1;
+              y = $2;
+              first = false;
+            }
+    ;
+
+%%
+
+static FlexLexer *lexer;
+
+int yyerror(const char *s)
+{
+    std::cerr << "Parse error: " << s << std::endl;
+    return 0;
+}
+
+int yylex()
+{
+    return lexer->yylex();
+}
+
+void parse_file(std::istream &input, Canvas *output)
+{
+    lexer = new yyFlexLexer(&input);
+    canv = output;
+
+    if (yyparse())
+    {
+        std::cerr << "Parse Failed!" << std::endl;
+        exit(1);
+    }
+
+    delete lexer;
+}
