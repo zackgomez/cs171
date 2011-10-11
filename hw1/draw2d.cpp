@@ -24,9 +24,9 @@ int main(int argc, char **argv)
     Canvas pic(xmin, xmax, ymin, ymax, xRes, yRes);
     parse_file(std::cin, &pic);
 
-    std::fstream file("draw2doutput.ppm", std::fstream::out);
-    pic.display(file, 255);
-    file.close();
+    //std::fstream file("draw2doutput.ppm", std::fstream::out);
+    pic.display(std::cout, 255);
+    //file.close();
 
     return 0;
 }
