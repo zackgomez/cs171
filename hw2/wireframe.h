@@ -18,7 +18,7 @@ struct Separator
 {
     Matrix4 transform;
     std::vector<Vector3> points;
-    std::vector<int> indexes;
+    std::vector<int> indices;
 };
 
 struct Scene
