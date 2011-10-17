@@ -8,6 +8,7 @@
 %%
 
 [+-]?([0-9]+\.?[0-9]*) { yylval.fval = atof(yytext); return NUMBER; }
+[+-]?(\.?[0-9]*)       { yylval.fval = atof(yytext); return NUMBER; }
 
 #[^\r\n]*       /* Ignore comments */
 [ \t\r\n]+      /* Ignore whitespace */

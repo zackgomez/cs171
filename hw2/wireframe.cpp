@@ -28,7 +28,7 @@ int main(int argc, char **argv)
     parse_file(std::cin, &scene);
 
     // Canvas dimensions are NDC -- bottom left is origin
-    Canvas canv(0, 1, 1, 0, xRes, yRes);
+    Canvas canv(-1.5, 1.5, -1.5, 1.5, xRes, yRes);
 
     //print_scene_info(scene);
     render_scene(scene, canv);
@@ -120,10 +120,11 @@ Matrix4 worldToNDCMatrix(const Scene &scene)
     Matrix4 ret = make_rotation(rot(0), rot(1), rot(2), -rot(3));
     ret = ret * make_translation(-pos(0), -pos(1), -pos(2));
     assert(ret == (make_translation(pos(0), pos(1), pos(2)) * make_rotation(rot(0), rot(1), rot(2), rot(3))).inverse());
+    std::cout << "World to camera matrix:\n" << ret;
 
     // camera to NDC
-    ret = make_ortho(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance) * ret;
-    std::cout << "Ortho matrix:\n" << make_ortho(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance);
+    ret = make_perspective(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance) * ret;
+    std::cout << "Perspective matrix:\n" << make_perspective(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance);
 
     // Done ret = P * C^-1
     return ret;
