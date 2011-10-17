@@ -1,5 +1,6 @@
 CXXFLAGS=-g -Wall -O0
 
+
 test: test.o
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) $^ -o $@
 

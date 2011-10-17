@@ -41,6 +41,19 @@ public:
         return *this;
     }
 
+    bool operator==(const Matrix &rhs)
+    {
+        for (int i = 0; i < R*C; i++)
+            if (data_[i] != rhs.data_[i])
+                return false;
+        return true;
+    }
+
+    bool operator!=(const Matrix &rhs)
+    {
+        return !operator==(rhs);
+    }
+
     const T& operator()(int r, int c) const
     {
         assert(r < R && c < C && r >= 0 && c >= 0);
