@@ -33,9 +33,9 @@ int main(int argc, char **argv)
     //print_scene_info(scene);
     render_scene(scene, canv);
 
-    std::fstream file("wireframe.ppm", std::fstream::out);
-    canv.display(file, 255);
-    file.close();
+    //std::fstream file("wireframe.ppm", std::fstream::out);
+    canv.display(std::cout, 255);
+    //file.close();
 
     return 0;
 }
@@ -47,12 +47,12 @@ void render_scene(const Scene &scene, Canvas &canv)
     std::vector<Separator>::const_iterator it = scene.separators.begin();
     for (; it != scene.separators.end(); it++)
     {
-        std::cout << "Model to world space matrix:\n" << it->transform;
+        //std::cout << "Model to world space matrix:\n" << it->transform;
         Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * it->transform;
         const std::vector<Vector3>& points = it->points;
         const std::vector<int>& indices = it->indices;
 
-        std::cout << "Full transform matrix:\n" << modelViewProjectionMatrix;
+        //std::cout << "Full transform matrix:\n" << modelViewProjectionMatrix;
 
         int firstInd = -1;
         int prevInd = -1;
@@ -92,8 +92,8 @@ void rasterizeEdge(const Vector3& a, const Vector3& b, const Matrix4& fullTransf
     ah(0) = a(0); ah(1) = a(1); ah(2) = a(2); ah(3) = 1;
     bh(0) = b(0); bh(1) = b(1); bh(2) = b(2); bh(3) = 1;
 
-    std::cout << "Pre transform (" << ah(0) << ' ' << ah(1) << ' ' << ah(2) << ") to (" <<
-        bh(0) << ' ' << bh(1) << ' ' << bh(2) << ")\n";
+    //std::cout << "Pre transform (" << ah(0) << ' ' << ah(1) << ' ' << ah(2) << ") to (" <<
+        //bh(0) << ' ' << bh(1) << ' ' << bh(2) << ")\n";
 
     // Transform to NDC
     ah = fullTransform * ah;
@@ -103,8 +103,8 @@ void rasterizeEdge(const Vector3& a, const Vector3& b, const Matrix4& fullTransf
     ah /= ah(3);
     bh /= bh(3);
 
-    std::cout << "Drawing from (" << ah(0) << ' ' << ah(1) << ' ' << ah(2) << ") to (" <<
-        bh(0) << ' ' << bh(1) << ' ' << bh(2) << ")\n";
+    //std::cout << "Drawing from (" << ah(0) << ' ' << ah(1) << ' ' << ah(2) << ") to (" <<
+        //bh(0) << ' ' << bh(1) << ' ' << bh(2) << ")\n";
 
     canv.drawLine(ah(0), ah(1), bh(0), bh(1));
 }
@@ -119,12 +119,11 @@ Matrix4 worldToNDCMatrix(const Scene &scene)
     // C^-1 = R^-1 * T^-1
     Matrix4 ret = make_rotation(rot(0), rot(1), rot(2), -rot(3));
     ret = ret * make_translation(-pos(0), -pos(1), -pos(2));
-    assert(ret == (make_translation(pos(0), pos(1), pos(2)) * make_rotation(rot(0), rot(1), rot(2), rot(3))).inverse());
-    std::cout << "World to camera matrix:\n" << ret;
+    //std::cout << "World to camera matrix:\n" << ret;
 
     // camera to NDC
     ret = make_perspective(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance) * ret;
-    std::cout << "Perspective matrix:\n" << make_perspective(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance);
+    //std::cout << "Perspective matrix:\n" << make_perspective(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance);
 
     // Done ret = P * C^-1
     return ret;
