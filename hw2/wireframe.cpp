@@ -27,8 +27,8 @@ int main(int argc, char **argv)
     Scene scene;
     parse_file(std::cin, &scene);
 
-    // Canvas dimensions are NDC -- bottom left is origin
-    Canvas canv(-1.5, 1.5, -1.5, 1.5, xRes, yRes);
+    // Canvas dimensions are NDC
+    Canvas canv(-1, 1, -1, 1, xRes, yRes);
 
     //print_scene_info(scene);
     render_scene(scene, canv);
