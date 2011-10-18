@@ -6,11 +6,6 @@ wireframe.ypp - parser; fills in wireframe.h data structures
 wireframe.cpp - main file, contains rendering functions and program flow
 ../zmatrix/* - matrix library and transformations
 
-
-NOTE: It was not specified in the write up what the viewport should be...
-I have hardcoded a 'viewport' of -1.5, 1.5 and -1.5,1.5.
-This produces images that differ from some of the reference images by zooming, but the rasterization is all the same.
-
 When reading in transformations, I multiply them before storing them in a Separator data structure.  This means that
 some information is 'lost' but it is unecessary for teh current functionality.  If necessary at a later date
 I will push a list of transformations on to the separator data structure instead of just the full transformation.
