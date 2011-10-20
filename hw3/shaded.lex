@@ -23,7 +23,7 @@ right               { return RIGHT; }
 top                 { return TOP; }
 bottom              { return BOTTOM; }
 
-pointLight          { return POINTLIGHT; }
+PointLight          { return POINTLIGHT; }
 location            { return LOCATION; }
 color               { return COLOR; }
 

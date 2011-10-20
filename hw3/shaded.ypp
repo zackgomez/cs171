@@ -17,6 +17,7 @@ static Matrix4 scale;
 
 static Camera camera;
 static Separator separator;
+static Light light;
 
 // Used to communicate
 static Vector3 triple;
@@ -26,6 +27,7 @@ static std::vector<int> singles;
 
 void clear_separator();
 void clear_transforms();
+void clear_light();
 
 %}
 
@@ -40,18 +42,20 @@ void clear_transforms();
 %token PCAMERA POS ORIENT NDIST FDIST LEFT RIGHT TOP BOTTOM
 %token SEPARATOR TRANSFORM COORDTHREE POINT IFACESET TRANSLAT
 %token SFACTOR ROT COORDINDEX LBRACE RBRACE LBRACKET RBRACKET
-%token COMMA
+%token COMMA POINTLIGHT LOCATION COLOR NORMALINDEX MATERIAL
+%token AMBIENTCOLOR DIFFUSECOLOR SPECULARCOLOR SHININESS NORMAL
+%token VECTOR
 
 %%
 blocks:
     block | block blocks ;
 block:
-    camerablock | sepblock ;
+    camerablock | lightblock | sepblock ;
 
 camerablock:
     PCAMERA open cameralines close { scene->camera = camera; };
 cameralines:
-    cameraline | cameraline cameralines;
+    cameraline | cameralines cameraline;
 cameraline:
     POS triple {camera.position = triple;}
     | ORIENT quad {camera.orientation = quad;}
@@ -62,6 +66,14 @@ cameraline:
     | TOP NUMBER {camera.top = $2; }
     | BOTTOM NUMBER {camera.bottom = $2; }
     ;
+
+lightblock:
+    POINTLIGHT open lightlines close { scene->lights.push_back(light); clear_light(); }
+lightlines:
+    lightline | lightlines lightline;
+lightline:
+    LOCATION triple { light.position = triple; }
+    COLOR triple { light.color = triple; }
 
 sepblock:
     SEPARATOR open sepitems close { scene->separators.push_back(separator); clear_separator(); }
@@ -134,12 +146,25 @@ void clear_transforms()
     scale = make_identity<float, 4>();
 }
 
+void clear_light()
+{
+    // Revert light to defaults
+    light.position(0) = 0;
+    light.position(1) = 0;
+    light.position(2) = 1;
+
+    light.color(0) = 1;
+    light.color(1) = 1;
+    light.color(2) = 1;
+}
+
 void parse_file(std::istream &input, Scene *output)
 {
     lexer = new yyFlexLexer(&input);
     scene = output;
 
     clear_separator();
+    clear_light();
 
     if (yyparse())
     {

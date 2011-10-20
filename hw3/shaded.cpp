@@ -15,7 +15,7 @@ void rasterizeEdge(const Vector3 &, const Vector3 &, const Matrix4 &, Canvas &);
 
 int main(int argc, char **argv)
 {
-    if (argc != 3)
+    if (argc != 4)
     {
         std::cerr << "usage: shaded n xRes yRes\n";
         exit(1);
@@ -142,6 +142,14 @@ void print_scene_info(const Scene &scene)
         << "right\n" << scene.camera.right << '\n'
         << "top\n" << scene.camera.top << '\n'
         << "bottom\n" << scene.camera.bottom << '\n';
+
+    std::cout << "Lights...\n";
+    for (std::vector<Light>::const_iterator it = scene.lights.begin(); it != scene.lights.end(); it++)
+    {
+        std::cout << " --- Light Info ---\n"
+            << "Position:\n" << it->position
+            << "Color:\n" << it->color;
+    }
 
     std::cout << "Separators...\n";
     for (std::vector<Separator>::const_iterator it = scene.separators.begin(); it != scene.separators.end(); it++)
