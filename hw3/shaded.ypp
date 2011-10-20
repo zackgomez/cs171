@@ -10,14 +10,10 @@ int yylex();
 
 static Scene *scene;
 
-// TRS matricies
-static Matrix4 trans;
-static Matrix4 rot;
-static Matrix4 scale;
-
 static Camera camera;
 static Separator separator;
 static Light light;
+static Transform transform;
 
 // Used to communicate
 static Vector3 triple;
@@ -80,7 +76,7 @@ sepblock:
 sepitems:
     sepitem | sepitem sepitems;
 sepitem:
-    TRANSFORM open translines close { separator.transform = separator.transform * trans * rot * scale; clear_transforms();}
+    TRANSFORM open translines close { separator.transforms.push_back(transform); clear_transforms();}
     | MATERIAL open matlines close { /* Filled in during Material parsing */ }
     | COORDTHREE open POINT sqopen triples sqclose close { separator.points = triples; triples.clear(); }
     | IFACESET open ifslines close { /* Work taken care of by ifsline */ }
@@ -90,9 +86,9 @@ sepitem:
 translines:
     transline | transline translines;
 transline:
-    TRANSLAT triple { trans = make_translation(triple(0), triple(1), triple(2)); }
-    | SFACTOR triple { scale = make_scaling(triple(0), triple(1), triple(2)); }
-    | ROT quad { rot = make_rotation(quad(0), quad(1), quad(2), quad(3)); }
+    TRANSLAT triple { transform.translation = make_translation(triple(0), triple(1), triple(2)); }
+    | SFACTOR triple { transform.scaling = make_scaling(triple(0), triple(1), triple(2)); }
+    | ROT quad { transform.rotation = make_rotation(quad(0), quad(1), quad(2), quad(3)); }
     ;
 
 ifslines:
@@ -152,7 +148,7 @@ int yylex()
 
 void clear_separator()
 {
-    separator.transform = make_identity<float, 4>();
+    separator.transforms.clear();
     clear_transforms();
 
     separator.points.clear();
@@ -168,9 +164,9 @@ void clear_separator()
 
 void clear_transforms()
 {
-    trans = make_identity<float, 4>();
-    rot   = make_identity<float, 4>();
-    scale = make_identity<float, 4>();
+    transform.translation = make_identity<float, 4>();
+    transform.rotation    = make_identity<float, 4>();
+    transform.scaling     = make_identity<float, 4>();
 }
 
 void clear_light()

@@ -28,11 +28,20 @@ struct Material
     float shininess;
 };
 
+struct Transform
+{
+    Matrix4 translation;
+    Matrix4 rotation;
+    Matrix4 scaling;
+};
+
 struct Separator
 {
-    Matrix4 transform;
+    std::vector<Transform> transforms;
+
     std::vector<Vector3> points;
     std::vector<int> indices;
+
     std::vector<Vector3> normals;
     std::vector<int> normalindices;
 

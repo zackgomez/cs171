@@ -48,8 +48,14 @@ void render_scene(const Scene &scene, Canvas &canv)
     std::vector<Separator>::const_iterator it = scene.separators.begin();
     for (; it != scene.separators.end(); it++)
     {
-        //std::cout << "Model to world space matrix:\n" << it->transform;
-        Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * it->transform;
+        Matrix4 modelMatrix = make_identity<float,4>();
+        for (unsigned i = 0; i < it->transforms.size(); i++)
+        {
+            const Transform& transform = it->transforms[i];
+            modelMatrix = modelMatrix * transform.translation * transform.rotation * transform.scaling;
+        }
+        std::cout << "Model to world space matrix:\n" << modelMatrix;
+        Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
         const std::vector<Vector3>& points = it->points;
         const std::vector<int>& indices = it->indices;
 
@@ -156,12 +162,17 @@ void print_scene_info(const Scene &scene)
     {
         const Separator& sep = *it;
         std::cout << " --- Separator Info ---\n";
-        std::cout << "Transform:\n" << sep.transform;
         std::cout << "Material:\n"
             << "ambientColor:\n" << sep.material.ambientColor
             << "diffuseColor:\n" << sep.material.diffuseColor
             << "specularColor:\n" << sep.material.specularColor
             << "shininess: " << sep.material.shininess << '\n';
+        std::cout << "Transforms:\n";
+        for (std::vector<Transform>::const_iterator itt = sep.transforms.begin(); itt != sep.transforms.end(); itt++)
+            std::cout << "Translation:\n" << itt->translation
+                << "Rotation:\n" << itt->rotation
+                << "Scaling:\n" << itt->scaling;
+
         std::cout << "Points:\n";
         for (std::vector<Vector3>::const_iterator itt = sep.points.begin(); itt != sep.points.end(); itt++)
             std::cout << (*itt)(0) << ' ' << (*itt)(1) << ' ' << (*itt)(2) << '\n';
