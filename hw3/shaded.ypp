@@ -1,0 +1,151 @@
+%{
+#include <FlexLexer.h>
+#include <iostream>
+#include <cstring>
+#include "shaded.h"
+#include "transforms.h"
+
+int yyerror(const char *s);
+int yylex();
+
+static Scene *scene;
+
+// TRS matricies
+static Matrix4 trans;
+static Matrix4 rot;
+static Matrix4 scale;
+
+static Camera camera;
+static Separator separator;
+
+// Used to communicate
+static Vector3 triple;
+static Vector4 quad;
+static std::vector<Vector3> triples;
+static std::vector<int> singles;
+
+void clear_separator();
+void clear_transforms();
+
+%}
+
+%union
+{
+    float fval;
+}
+
+%defines
+
+%token <fval> NUMBER
+%token PCAMERA POS ORIENT NDIST FDIST LEFT RIGHT TOP BOTTOM
+%token SEPARATOR TRANSFORM COORDTHREE POINT IFACESET TRANSLAT
+%token SFACTOR ROT COORDINDEX LBRACE RBRACE LBRACKET RBRACKET
+%token COMMA
+
+%%
+blocks:
+    block | block blocks ;
+block:
+    camerablock | sepblock ;
+
+camerablock:
+    PCAMERA open cameralines close { scene->camera = camera; };
+cameralines:
+    cameraline | cameraline cameralines;
+cameraline:
+    POS triple {camera.position = triple;}
+    | ORIENT quad {camera.orientation = quad;}
+    | NDIST NUMBER {camera.nearDistance = $2;}
+    | FDIST NUMBER {camera.farDistance = $2;}
+    | LEFT NUMBER {camera.left = $2; }
+    | RIGHT NUMBER {camera.right = $2; } 
+    | TOP NUMBER {camera.top = $2; }
+    | BOTTOM NUMBER {camera.bottom = $2; }
+    ;
+
+sepblock:
+    SEPARATOR open sepitems close { scene->separators.push_back(separator); clear_separator(); }
+sepitems:
+    sepitem | sepitem sepitems;
+sepitem:
+    TRANSFORM open translines close { separator.transform = separator.transform * trans * rot * scale; clear_transforms();}
+    | COORDTHREE open POINT sqopen triples sqclose close { separator.points = triples; triples.clear(); }
+    | IFACESET open ifslines close { /* Work taken care of by ifsline */ };
+
+translines:
+    transline | transline translines;
+transline:
+    TRANSLAT triple { trans = make_translation(triple(0), triple(1), triple(2)); }
+    | SFACTOR triple { scale = make_scaling(triple(0), triple(1), triple(2)); }
+    | ROT quad { rot = make_rotation(quad(0), quad(1), quad(2), quad(3)); }
+    ;
+
+ifslines:
+    ifsline | ifsline ifslines;
+ifsline:
+    COORDINDEX sqopen singles sqclose {separator.indices.insert(separator.indices.end(), singles.begin(), singles.end()); singles.clear(); };
+
+
+singles:
+    NUMBER { assert($1 == static_cast<int>($1)); singles.push_back($1); }
+    | singles COMMA NUMBER { assert($3 == static_cast<int>($3)); singles.push_back($3); }
+    ;
+
+triple: NUMBER NUMBER NUMBER { triple(0) = $1; triple(1) = $2; triple(2) = $3;};
+triples:
+    triple { triples.push_back(triple); }
+    | triples COMMA triple {triples.push_back(triple); }
+    ;
+
+quad: NUMBER NUMBER NUMBER NUMBER {quad(0) = $1; quad(1) = $2; quad(2) = $3; quad(3) = $4;};
+
+open: LBRACE;
+close: RBRACE;
+sqopen: LBRACKET;
+sqclose: RBRACKET;
+
+%%
+
+static FlexLexer *lexer;
+
+int yyerror(const char *s)
+{
+    std::cerr << "Parse error: " << s << std::endl;
+    return 0;
+}
+
+int yylex()
+{
+    return lexer->yylex();
+}
+
+void clear_separator()
+{
+    separator.transform = make_identity<float, 4>();
+    separator.points.clear();
+    separator.indices.clear();
+    clear_transforms();
+}
+
+void clear_transforms()
+{
+    trans = make_identity<float, 4>();
+    rot   = make_identity<float, 4>();
+    scale = make_identity<float, 4>();
+}
+
+void parse_file(std::istream &input, Scene *output)
+{
+    lexer = new yyFlexLexer(&input);
+    scene = output;
+
+    clear_separator();
+
+    if (yyparse())
+    {
+        std::cerr << "Parse Failed!" << std::endl;
+        exit(1);
+    }
+
+    delete lexer;
+}
