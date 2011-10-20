@@ -86,9 +86,9 @@ sepitem:
 translines:
     transline | transline translines;
 transline:
-    TRANSLAT triple { transform.translation = make_translation(triple(0), triple(1), triple(2)); }
-    | SFACTOR triple { transform.scaling = make_scaling(triple(0), triple(1), triple(2)); }
-    | ROT quad { transform.rotation = make_rotation(quad(0), quad(1), quad(2), quad(3)); }
+    TRANSLAT triple { transform.translation = triple; }
+    | SFACTOR triple { transform.scaling = triple; }
+    | ROT quad { transform.rotation = quad; }
     ;
 
 ifslines:
@@ -164,9 +164,10 @@ void clear_separator()
 
 void clear_transforms()
 {
-    transform.translation = make_identity<float, 4>();
-    transform.rotation    = make_identity<float, 4>();
-    transform.scaling     = make_identity<float, 4>();
+    // Default to identity transforms
+    transform.translation = makeVector3(0, 0, 0);
+    transform.rotation    = makeVector4(0, 0, 1, 0);
+    transform.scaling     = makeVector3(1, 1, 1);
 }
 
 void clear_light()

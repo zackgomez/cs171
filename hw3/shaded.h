@@ -30,9 +30,9 @@ struct Material
 
 struct Transform
 {
-    Matrix4 translation;
-    Matrix4 rotation;
-    Matrix4 scaling;
+    Vector3 translation;
+    Vector4 rotation;
+    Vector3 scaling;
 };
 
 struct Separator

@@ -12,6 +12,7 @@ void print_scene_info(const Scene &scene);
 void render_scene(const Scene &scene, Canvas &canv);
 Matrix4 worldToNDCMatrix(const Scene &scene);
 void rasterizeEdge(const Vector3 &, const Vector3 &, const Matrix4 &, Canvas &);
+Matrix4 createModelMatrix(const Transform &);
 
 int main(int argc, char **argv)
 {
@@ -52,7 +53,7 @@ void render_scene(const Scene &scene, Canvas &canv)
         for (unsigned i = 0; i < it->transforms.size(); i++)
         {
             const Transform& transform = it->transforms[i];
-            modelMatrix = modelMatrix * transform.translation * transform.rotation * transform.scaling;
+            modelMatrix = modelMatrix * createModelMatrix(it->transforms[i]);
         }
         std::cout << "Model to world space matrix:\n" << modelMatrix;
         Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
@@ -134,6 +135,15 @@ Matrix4 worldToNDCMatrix(const Scene &scene)
 
     // Done ret = P * C^-1
     return ret;
+}
+
+Matrix4 createModelMatrix(const Transform &transform)
+{
+    Matrix4 trans = make_translation(transform.translation(0), transform.translation(1), transform.translation(2));
+    Matrix4 scale = make_scaling(transform.scaling(0), transform.scaling(1), transform.scaling(2));
+    Matrix4 rot = make_rotation(transform.rotation(0), transform.rotation(1), transform.rotation(2), transform.rotation(3));
+
+    return trans * scale * rot;
 }
 
 void print_scene_info(const Scene &scene)
