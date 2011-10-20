@@ -303,3 +303,7 @@ typedef Matrix<data_t, 3, 1> Vector3;
 typedef Matrix<data_t, 4, 1> Vector4;
 typedef Matrix<data_t, 3, 3> Matrix3;
 typedef Matrix<data_t, 4, 4> Matrix4;
+
+Vector3 makeVector3(data_t x, data_t y, data_t z);
+
+Vector4 makeVector4(data_t x, data_t y, data_t z, data_t w);

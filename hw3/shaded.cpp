@@ -157,11 +157,25 @@ void print_scene_info(const Scene &scene)
         const Separator& sep = *it;
         std::cout << " --- Separator Info ---\n";
         std::cout << "Transform:\n" << sep.transform;
+        std::cout << "Material:\n"
+            << "ambientColor:\n" << sep.material.ambientColor
+            << "diffuseColor:\n" << sep.material.diffuseColor
+            << "specularColor:\n" << sep.material.specularColor
+            << "shininess: " << sep.material.shininess << '\n';
         std::cout << "Points:\n";
         for (std::vector<Vector3>::const_iterator itt = sep.points.begin(); itt != sep.points.end(); itt++)
             std::cout << (*itt)(0) << ' ' << (*itt)(1) << ' ' << (*itt)(2) << '\n';
         std::cout << "Indexes:\n";
         for (std::vector<int>::const_iterator itt = sep.indices.begin(); itt != sep.indices.end(); itt++)
+            if (*itt != -1)
+                std::cout << *itt << ' ';
+            else
+                std::cout << '\n';
+        std::cout << "Normals:\n";
+        for (std::vector<Vector3>::const_iterator itt = sep.normals.begin(); itt != sep.normals.end(); itt++)
+            std::cout << (*itt)(0) << ' ' << (*itt)(1) << ' ' << (*itt)(2) << '\n';
+        std::cout << "Normal Indices:\n";
+        for (std::vector<int>::const_iterator itt = sep.normalindices.begin(); itt != sep.normalindices.end(); itt++)
             if (*itt != -1)
                 std::cout << *itt << ' ';
             else

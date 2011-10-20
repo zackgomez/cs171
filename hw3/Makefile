@@ -4,7 +4,7 @@ LDFLAGS=
 
 all: shaded
 
-shaded: shaded.o shaded.tab.o shaded.yy.o transforms.o
+shaded: shaded.o shaded.tab.o shaded.yy.o transforms.o matrix.o
 	g++ $(LDFLAGS) $(CXXFLAGS) -o $@ $^
 
 shaded.tab.cpp shaded.tab.hpp: shaded.ypp
@@ -16,5 +16,8 @@ shaded.yy.cpp: shaded.lex
 transforms.o: $(ZMATRIX)/transforms.cpp
 	g++ $(CXXFLAGS) -c $^
 
+matrix.o: $(ZMATRIX)/matrix.cpp
+	g++ $(CXXFLAGS) -c $^
+
 clean:
-	rm -f *.o shaded shaded.yy.cpp shaded.tab.cpp shaded.tab.hpp transform.o
+	rm -f *.o shaded shaded.yy.cpp shaded.tab.cpp shaded.tab.hpp transform.o matrix.o

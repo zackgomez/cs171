@@ -81,8 +81,11 @@ sepitems:
     sepitem | sepitem sepitems;
 sepitem:
     TRANSFORM open translines close { separator.transform = separator.transform * trans * rot * scale; clear_transforms();}
+    | MATERIAL open matlines close { /* Filled in during Material parsing */ }
     | COORDTHREE open POINT sqopen triples sqclose close { separator.points = triples; triples.clear(); }
-    | IFACESET open ifslines close { /* Work taken care of by ifsline */ };
+    | IFACESET open ifslines close { /* Work taken care of by ifsline */ }
+    | NORMAL open normlines close
+    ;
 
 translines:
     transline | transline translines;
@@ -95,7 +98,23 @@ transline:
 ifslines:
     ifsline | ifsline ifslines;
 ifsline:
-    COORDINDEX sqopen singles sqclose {separator.indices.insert(separator.indices.end(), singles.begin(), singles.end()); singles.clear(); };
+    COORDINDEX sqopen singles sqclose {separator.indices = singles; singles.clear();}
+    | NORMALINDEX sqopen singles sqclose {separator.normalindices = singles; singles.clear();}
+    ;
+
+matlines:
+    matline | matlines matline;
+matline:
+    AMBIENTCOLOR triple { separator.material.ambientColor = triple; }
+    | DIFFUSECOLOR triple { separator.material.diffuseColor = triple; }
+    | SPECULARCOLOR triple { separator.material.specularColor = triple; }
+    | SHININESS NUMBER { separator.material.shininess = $2; }
+    ;
+
+normlines:
+    normline | normlines normline;
+normline:
+    VECTOR sqopen triples sqclose {separator.normals = triples;}
 
 
 singles:
@@ -134,9 +153,17 @@ int yylex()
 void clear_separator()
 {
     separator.transform = make_identity<float, 4>();
+    clear_transforms();
+
     separator.points.clear();
     separator.indices.clear();
-    clear_transforms();
+    separator.normals.clear();
+    separator.normalindices.clear();
+
+    separator.material.ambientColor = makeVector3(0.2, 0.2, 0.2);
+    separator.material.diffuseColor = makeVector3(0.8, 0.8, 0.8);
+    separator.material.specularColor = makeVector3(0.0, 0.0, 0.0);
+    separator.material.shininess = 0.2;
 }
 
 void clear_transforms()
@@ -149,13 +176,8 @@ void clear_transforms()
 void clear_light()
 {
     // Revert light to defaults
-    light.position(0) = 0;
-    light.position(1) = 0;
-    light.position(2) = 1;
-
-    light.color(0) = 1;
-    light.color(1) = 1;
-    light.color(2) = 1;
+    light.position = makeVector3(0, 0, 1);
+    light.color = makeVector3(1, 1, 1);
 }
 
 void parse_file(std::istream &input, Scene *output)
