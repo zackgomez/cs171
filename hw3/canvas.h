@@ -39,6 +39,26 @@ public:
         delete[] b_;
     }
 
+    int getPixelX(float n) const
+    {
+        return floor((n - xmin_) / (xmax_ - xmin_) * xres_);
+    }
+
+    int getPixelY(float n) const
+    {
+        return floor((ymax_ - n) / (ymax_ - ymin_) * yres_);
+    }
+
+    int getXRes() const
+    {
+        return xres_;
+    }
+
+    int getYRes() const
+    {
+        return yres_;
+    }
+
     void drawPixel(unsigned x, unsigned y, float r, float g, float b)
     {
         if (x < 0 || x >= xres_ || y < 0 || y >= yres_)
@@ -66,10 +86,10 @@ public:
             std::swap(y1, y2);
 
         // Convert to pixel coords
-        int x1p = floor((x1 - xmin_) / (xmax_ - xmin_) * xres_);
-        int y1p = floor((ymax_ - y1) / (ymax_ - ymin_) * yres_);
-        int x2p = floor((x2 - xmin_) / (xmax_ - xmin_) * xres_);
-        int y2p = floor((ymax_ - y2) / (ymax_ - ymin_) * yres_);
+        int x1p = getPixelX(x1);
+        int y1p = getPixelY(y1);
+        int x2p = getPixelX(x2);
+        int y2p = getPixelY(y2);
         
         // Direction control
         bool xdir = true;
@@ -152,7 +172,7 @@ public:
 
     }
 
-    void display(std::ostream &os, unsigned maxintensity)
+    void display(std::ostream &os, unsigned maxintensity) const
     {
         // Output PPM header
         os << "P3\n";

@@ -20,3 +20,14 @@ Vector4 makeVector4(data_t x, data_t y, data_t z, data_t w)
 
     return ret;
 }
+
+Vector4 homogenize(const Vector3 &v)
+{
+    Vector4 ret;
+    ret(0) = v(0);
+    ret(1) = v(1);
+    ret(2) = v(2);
+    ret(3) = 1;
+
+    return ret;
+}

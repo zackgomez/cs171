@@ -5,6 +5,7 @@
 #include "canvas.h"
 #include "matrix.h"
 #include "transforms.h"
+#include "raster.h"
 
 void parse_file(std::istream &input, Scene *output);
 
@@ -13,6 +14,7 @@ void render_scene(const Scene &scene, Canvas &canv);
 Matrix4 worldToNDCMatrix(const Scene &scene);
 void rasterizeEdge(const Vector3 &, const Vector3 &, const Matrix4 &, Canvas &);
 Matrix4 createModelMatrix(const Transform &);
+Matrix4 createNormalMatrix(const Transform &);
 
 int main(int argc, char **argv)
 {
@@ -32,61 +34,104 @@ int main(int argc, char **argv)
     // Canvas dimensions are NDC
     Canvas canv(-1, 1, -1, 1, xRes, yRes);
 
-    print_scene_info(scene);
+    //print_scene_info(scene);
     render_scene(scene, canv);
 
     //std::fstream file("shaded.ppm", std::fstream::out);
-    //canv.display(std::cout, 255);
+    canv.display(std::cout, 255);
     //file.close();
 
     return 0;
 }
 
+struct debug_pixel
+{
+    debug_pixel(Canvas &canv) : canvas(canv) {}
+
+    void operator()(int x, int y, float *data)
+    {
+        /*
+        std::cout << "Drawing pixel at (" << x << ' ' << y << ") - "
+            << '[' << data[0] << ' ' << data[1] << ' ' << data[2] << "]\n";
+            */
+
+        canvas.drawPixel(x, y, 1, 1, 1);
+    }
+
+private:
+    Canvas &canvas;
+};
+
 void render_scene(const Scene &scene, Canvas &canv)
 {
+    initRaster(&canv);
     Matrix4 viewProjectionMatrix = worldToNDCMatrix(scene);
 
     std::vector<Separator>::const_iterator it = scene.separators.begin();
     for (; it != scene.separators.end(); it++)
     {
         Matrix4 modelMatrix = make_identity<float,4>();
+        Matrix4 normalMatrix = make_identity<float,4>();
         for (unsigned i = 0; i < it->transforms.size(); i++)
         {
-            const Transform& transform = it->transforms[i];
             modelMatrix = modelMatrix * createModelMatrix(it->transforms[i]);
+            normalMatrix = normalMatrix * createNormalMatrix(it->transforms[i]);
         }
-        std::cout << "Model to world space matrix:\n" << modelMatrix;
+        //std::cout << "Model to world space matrix:\n" << modelMatrix;
+        //std::cout << "Normal matrix:\n" << normalMatrix;
         Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
+        //std::cout << "Full transform matrix:\n" << modelViewProjectionMatrix;
+
+
         const std::vector<Vector3>& points = it->points;
         const std::vector<int>& indices = it->indices;
-
-        //std::cout << "Full transform matrix:\n" << modelViewProjectionMatrix;
 
         int firstInd = -1;
         int prevInd = -1;
         for (unsigned i = 0; i < indices.size(); i++)
         {
             int ind = indices[i];
-            // ending index -> draw from prev to first and clear
+            // ending index -> reset
             if (ind == -1)
-            {
-                // draw a line between points[prevInd] and points[firstInd]
-                rasterizeEdge(points[prevInd], points[firstInd], modelViewProjectionMatrix, canv);
                 firstInd = prevInd = -1;
-                continue;
-            }
-            // First index, don't draw a line, just record points
-            if (firstInd == -1)
-            {
+            // first index -> just record index
+            else if (firstInd == -1)
                 firstInd = ind;
+            // first index recorded, but not second -> just record second
+            else if (prevInd == -1)
                 prevInd = ind;
-            }
-            // Middle indices, draw a line between prev and current, update prev
+            // both first and second indices recorded -> rasterize triange
             else
             {
-                // draw a line between points[prevInd] and points[ind]
-                rasterizeEdge(points[prevInd], points[ind], modelViewProjectionMatrix, canv);
+                Vector3 pts[3] = {points[firstInd], points[prevInd], points[ind]};
+                vertex verts[3];
+                // Create vertices
+                for (int i = 0; i < 3; i++)
+                {
+                    // First transform the point
+                    Vector4 coord = modelViewProjectionMatrix * homogenize(pts[i]);
+                    coord /= coord(3);
 
+                    // Then stuff the vertex structure
+                    verts[i].num_data = 3;
+                    verts[i].data = new float[3];
+                    verts[i].data[0] = coord(0);
+                    verts[i].data[1] = coord(1);
+                    verts[i].data[2] = coord(2);
+                    /*
+                    std::cout << "Sending vertex - [" << verts[i].data[0] << ' '
+                        << verts[i].data[1] << ' ' << verts[i].data[2] << "]\n";
+                        */
+                }
+
+                // RASTERIZE GO
+                rasterizeTriangle(verts, debug_pixel(canv));
+
+                // clean up
+                for (int i = 0; i < 3; i++)
+                    delete verts[i].data;
+
+                // And update prevInd
                 prevInd = ind;
             }
         }
@@ -144,6 +189,16 @@ Matrix4 createModelMatrix(const Transform &transform)
     Matrix4 rot = make_rotation(transform.rotation(0), transform.rotation(1), transform.rotation(2), transform.rotation(3));
 
     return trans * scale * rot;
+}
+
+Matrix4 createNormalMatrix(const Transform &transform)
+{
+    // Inverse scaling is 1/params
+    Matrix4 scale = make_scaling(1/transform.scaling(0), 1/transform.scaling(1), 1/transform.scaling(2));
+    // Inverse rotation is rotation around same vector, negative angle
+    Matrix4 rot = make_rotation(transform.rotation(0), transform.rotation(1), transform.rotation(2), -transform.rotation(3));
+
+    return (scale * rot).transpose();
 }
 
 void print_scene_info(const Scene &scene)
