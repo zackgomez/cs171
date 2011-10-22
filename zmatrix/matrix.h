@@ -9,6 +9,7 @@
 #include <ostream>
 #include <cmath>
 #include <cassert>
+#include <iostream>
 
 template<typename T, int R, int C>
 class Matrix
@@ -123,7 +124,7 @@ public:
     const T magnitude2() const
     {
         assert(C == 1);
-        int mag = 0;
+        float mag = 0;
         for (int i = 0; i < R; i++)
             mag += data_[i] * data_[i];
         return mag;
@@ -138,7 +139,7 @@ public:
     // IN PLACE normalization
     void normalize()
     {
-        *this /= magnitude();
+        this->operator/=(magnitude());
     }
 
     // computes the dot product of two n,1 (column vector) matrices

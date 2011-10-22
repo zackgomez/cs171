@@ -52,7 +52,8 @@ struct debug_pixel
     {
         /*
         std::cerr << "Drawing pixel at (" << x << ' ' << y << ") - "
-            << '[' << data[0] << ' ' << data[1] << ' ' << data[2] << "]\n";
+            << '[' << data[0] << ' ' << data[1] << ' ' << data[2] << "] "
+            << "normal [" << data[3] << ' ' << data[4] << ' ' << data[5] << "]\n";
             */
 
         canvas.drawPixel(x, y, data[2], data[3], data[4], data[5]);
@@ -144,7 +145,8 @@ void render_scene(const Scene &scene, Canvas &canv)
                 {
                     Vector3 coord = pts[i];
                     // Transform the normal vector
-                    Vector4 norm = normalMatrix * homogenize(norms[i]);
+                    Vector4 norm = homogenize(norms[i]);
+                    norm = normalMatrix * norm;
                     norm /= norm(3);
                     // Use a shortcut to normalize
                     norm(3) = 0; norm.normalize();
