@@ -55,7 +55,7 @@ struct debug_pixel
             << '[' << data[0] << ' ' << data[1] << ' ' << data[2] << "]\n";
             */
 
-        canvas.drawPixel(x, y, data[2], 1, 1, 1);
+        canvas.drawPixel(x, y, data[2], data[3], data[4], data[5]);
     }
 
 private:
@@ -85,43 +85,80 @@ void render_scene(const Scene &scene, Canvas &canv)
 
         const std::vector<Vector3>& points = it->points;
         const std::vector<int>& indices = it->indices;
+        const std::vector<Vector3>& normals = it->normals;
+        const std::vector<int>& normindices = it->normalindices;
 
         int firstInd = -1;
         int prevInd = -1;
+        int firstNormi = -1;
+        int prevNormi = -1;
         for (unsigned i = 0; i < indices.size(); i++)
         {
             int ind = indices[i];
+            int normi = normindices[i];
             // ending index -> reset
             if (ind == -1)
+            {
                 firstInd = prevInd = -1;
+                firstNormi = prevNormi = -1;
+            }
             // first index -> just record index
             else if (firstInd == -1)
+            {
                 firstInd = ind;
+                firstNormi = normi;
+            }
             // first index recorded, but not second -> just record second
             else if (prevInd == -1)
+            {
                 prevInd = ind;
+                prevNormi = normi;
+            }
             // both first and second indices recorded -> rasterize triange
             else
             {
+                // Cache points
                 Vector3 pts[3] = {points[firstInd], points[prevInd], points[ind]};
+                Vector3 norms[3] = {normals[firstNormi], normals[prevNormi], normals[normi]};
+                // And update indexes
+                prevInd = ind;
+                prevNormi = normi;
+                // Transform the points, do this now so we can check for backface culling
+                for (int i = 0; i < 3; i++)
+                {
+                    Vector4 coord = modelViewProjectionMatrix * homogenize(pts[i]);
+                    coord /= coord(3);
+                    pts[i](0) = coord(0); pts[i](1) = coord(1); pts[i](2) = coord(2);
+                }
+                // Check for backface culling
+                // Z coordinate of cross product (v2 - v1) X (v0 - v1)
+                float z = (pts[2](0) - pts[1](0)) * (pts[0](1) - pts[1](1)) -
+                          (pts[0](0) - pts[1](0)) * (pts[2](1) - pts[1](1));
+                // If the triangle faces away.. don't draw
+                if (z <= 0)
+                    continue;
+
                 vertex verts[3];
                 // Create vertices
                 for (int i = 0; i < 3; i++)
                 {
-                    // First transform the point
-                    Vector4 coord = modelViewProjectionMatrix * homogenize(pts[i]);
-                    coord /= coord(3);
+                    Vector3 coord = pts[i];
+                    // Transform the normal vector
+                    Vector4 norm = normalMatrix * homogenize(norms[i]);
+                    norm /= norm(3);
+                    // Use a shortcut to normalize
+                    norm(3) = 0; norm.normalize();
 
                     // Then stuff the vertex structure
-                    verts[i].num_data = 3;
-                    verts[i].data = new float[3];
+                    const int NUM_DATA = 6;
+                    verts[i].num_data = NUM_DATA;
+                    verts[i].data = new float[NUM_DATA];
                     verts[i].data[0] = coord(0);
                     verts[i].data[1] = coord(1);
                     verts[i].data[2] = coord(2);
-                    /*
-                    std::cout << "Sending vertex - [" << verts[i].data[0] << ' '
-                        << verts[i].data[1] << ' ' << verts[i].data[2] << "]\n";
-                        */
+                    verts[i].data[3] = norm(0);
+                    verts[i].data[4] = norm(1);
+                    verts[i].data[5] = norm(2);
                 }
 
                 // RASTERIZE GO
@@ -130,9 +167,6 @@ void render_scene(const Scene &scene, Canvas &canv)
                 // clean up
                 for (int i = 0; i < 3; i++)
                     delete[] verts[i].data;
-
-                // And update prevInd
-                prevInd = ind;
             }
         }
     }
