@@ -92,7 +92,7 @@ public:
 
         // Clamp the colors
         colorClamp(r,g,b);
-        //std::cout << "Drawing pixel: (" << x << ',' << y << ")\n";
+        //std::cout << "Drawing pixel: (" << x << ',' << y << ") - [" << r << ' ' << g << ' ' << b << "]\n";
         r_[i] = r;
         g_[i] = g;
         b_[i] = b;

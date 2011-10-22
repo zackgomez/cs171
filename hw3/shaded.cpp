@@ -6,16 +6,15 @@
 #include "matrix.h"
 #include "transforms.h"
 #include "raster.h"
-
 void parse_file(std::istream &input, Scene *output);
 
 void print_scene_info(const Scene &scene);
 void render_scene(const Scene &scene, Canvas &canv);
 Matrix4 worldToNDCMatrix(const Scene &scene);
-void rasterizeEdge(const Vector3 &, const Vector3 &, const Matrix4 &, Canvas &);
 Matrix4 createModelMatrix(const Transform &);
 Matrix4 createNormalMatrix(const Transform &);
-
+Vector3 lightFunc(const Vector3 &normal, const Vector3 &pos, const Material &material,
+        const std::vector<Light>& lights, const Vector3 &camerapos);
 
 int main(int argc, char **argv)
 {
@@ -35,7 +34,7 @@ int main(int argc, char **argv)
     // Canvas dimensions are NDC
     Canvas canv(-1, 1, -1, 1, xRes, yRes);
 
-    //print_scene_info(scene);
+    print_scene_info(scene);
     render_scene(scene, canv);
 
     //std::fstream file("shaded.ppm", std::fstream::out);
@@ -57,6 +56,7 @@ struct debug_pixel
             << "normal [" << data[3] << ' ' << data[4] << ' ' << data[5] << "]\n";
             */
 
+        //canvas.drawPixel(x, y, data[2], 1, 1, 1);
         canvas.drawPixel(x, y, data[2], data[3], data[4], data[5]);
     }
 
@@ -79,7 +79,7 @@ void render_scene(const Scene &scene, Canvas &canv)
             modelMatrix = modelMatrix * createModelMatrix(it->transforms[i]);
             normalMatrix = normalMatrix * createNormalMatrix(it->transforms[i]);
         }
-        //std::cout << "Model to world space matrix:\n" << modelMatrix;
+        std::cerr << "Model to world space matrix:\n" << modelMatrix;
         //std::cout << "Normal matrix:\n" << normalMatrix;
         Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
         //std::cout << "Full transform matrix:\n" << modelViewProjectionMatrix;
@@ -89,6 +89,9 @@ void render_scene(const Scene &scene, Canvas &canv)
         const std::vector<int>& indices = it->indices;
         const std::vector<Vector3>& normals = it->normals;
         const std::vector<int>& normindices = it->normalindices;
+
+        // TODO......
+        const Vector3 cameraPos;
 
         int firstInd = -1;
         int prevInd = -1;
@@ -132,6 +135,10 @@ void render_scene(const Scene &scene, Canvas &canv)
                     coord /= coord(3);
                     pts[i](0) = coord(0); pts[i](1) = coord(1); pts[i](2) = coord(2);
                 }
+                std::cerr << "Rasterizing triangle <" << pts[0](0) << ' ' << pts[0](1) << ' '
+                    << pts[0](2) << "> - <" << pts[1](0) << ' ' << pts[1](1) << ' '
+                    << pts[1](2) << "> - <" << pts[2](0) << ' ' << pts[2](1) << ' '
+                    << pts[2](2) << ">\n";
                 // Check for backface culling
                 // Z coordinate of cross product (v2 - v1) X (v0 - v1)
                 float z = (pts[2](0) - pts[1](0)) * (pts[0](1) - pts[1](1)) -
@@ -151,6 +158,11 @@ void render_scene(const Scene &scene, Canvas &canv)
                     norm /= norm(3);
                     // Use a shortcut to normalize
                     norm(3) = 0; norm.normalize();
+                    Vector3 normal; normal(0) = norm(0); normal(1) = norm(1); normal(2) = norm(2);
+
+                    // Calculate the lighting
+                    Vector3 color = lightFunc(coord, normal, it->material, scene.lights, cameraPos);
+                    std::cerr << "Calculated color: (" << color(0) << ' ' << color(1) << ' ' << color(2) << ")\n";
 
                     // Then stuff the vertex structure
                     const int NUM_DATA = 6;
@@ -159,9 +171,9 @@ void render_scene(const Scene &scene, Canvas &canv)
                     verts[i].data[0] = coord(0);
                     verts[i].data[1] = coord(1);
                     verts[i].data[2] = coord(2);
-                    verts[i].data[3] = norm(0);
-                    verts[i].data[4] = norm(1);
-                    verts[i].data[5] = norm(2);
+                    verts[i].data[3] = color(0);
+                    verts[i].data[4] = color(1);
+                    verts[i].data[5] = color(2);
                 }
 
                 // RASTERIZE GO
@@ -173,30 +185,6 @@ void render_scene(const Scene &scene, Canvas &canv)
             }
         }
     }
-}
-
-void rasterizeEdge(const Vector3& a, const Vector3& b, const Matrix4& fullTransform, Canvas &canv)
-{
-    // extend to homogenized coords
-    Vector4 ah, bh;
-    ah(0) = a(0); ah(1) = a(1); ah(2) = a(2); ah(3) = 1;
-    bh(0) = b(0); bh(1) = b(1); bh(2) = b(2); bh(3) = 1;
-
-    //std::cout << "Pre transform (" << ah(0) << ' ' << ah(1) << ' ' << ah(2) << ") to (" <<
-        //bh(0) << ' ' << bh(1) << ' ' << bh(2) << ")\n";
-
-    // Transform to NDC
-    ah = fullTransform * ah;
-    bh = fullTransform * bh;
-
-    // re homogenize
-    ah /= ah(3);
-    bh /= bh(3);
-
-    //std::cout << "Drawing from (" << ah(0) << ' ' << ah(1) << ' ' << ah(2) << ") to (" <<
-        //bh(0) << ' ' << bh(1) << ' ' << bh(2) << ")\n";
-
-    canv.drawLine(ah(0), ah(1), bh(0), bh(1));
 }
 
 Matrix4 worldToNDCMatrix(const Scene &scene)
@@ -240,8 +228,8 @@ Matrix4 createNormalMatrix(const Transform &transform)
 
 void print_scene_info(const Scene &scene)
 {
-    std::cout << "Printing out scene...\n";
-    std::cout << " --- Camera Info ---\n"
+    std::cerr << "Printing out scene...\n";
+    std::cerr << " --- Camera Info ---\n"
         << "position\n" << scene.camera.position
         << "orientation\n" << scene.camera.orientation
         << "nearDistance\n" << scene.camera.nearDistance << '\n'
@@ -251,47 +239,72 @@ void print_scene_info(const Scene &scene)
         << "top\n" << scene.camera.top << '\n'
         << "bottom\n" << scene.camera.bottom << '\n';
 
-    std::cout << "Lights...\n";
+    std::cerr << "Lights...\n";
     for (std::vector<Light>::const_iterator it = scene.lights.begin(); it != scene.lights.end(); it++)
     {
-        std::cout << " --- Light Info ---\n"
+        std::cerr << " --- Light Info ---\n"
             << "Position:\n" << it->position
             << "Color:\n" << it->color;
     }
 
-    std::cout << "Separators...\n";
+    std::cerr << "Separators...\n";
     for (std::vector<Separator>::const_iterator it = scene.separators.begin(); it != scene.separators.end(); it++)
     {
         const Separator& sep = *it;
-        std::cout << " --- Separator Info ---\n";
-        std::cout << "Material:\n"
+        std::cerr << " --- Separator Info ---\n";
+        std::cerr << "Material:\n"
             << "ambientColor:\n" << sep.material.ambientColor
             << "diffuseColor:\n" << sep.material.diffuseColor
             << "specularColor:\n" << sep.material.specularColor
             << "shininess: " << sep.material.shininess << '\n';
-        std::cout << "Transforms:\n";
+        std::cerr << "Transforms:\n";
         for (std::vector<Transform>::const_iterator itt = sep.transforms.begin(); itt != sep.transforms.end(); itt++)
-            std::cout << "Translation:\n" << itt->translation
+            std::cerr << "Translation:\n" << itt->translation
                 << "Rotation:\n" << itt->rotation
                 << "Scaling:\n" << itt->scaling;
 
-        std::cout << "Points:\n";
+        std::cerr << "Points:\n";
         for (std::vector<Vector3>::const_iterator itt = sep.points.begin(); itt != sep.points.end(); itt++)
-            std::cout << (*itt)(0) << ' ' << (*itt)(1) << ' ' << (*itt)(2) << '\n';
-        std::cout << "Indexes:\n";
+            std::cerr << (*itt)(0) << ' ' << (*itt)(1) << ' ' << (*itt)(2) << '\n';
+        std::cerr << "Indexes:\n";
         for (std::vector<int>::const_iterator itt = sep.indices.begin(); itt != sep.indices.end(); itt++)
             if (*itt != -1)
-                std::cout << *itt << ' ';
+                std::cerr << *itt << ' ';
             else
-                std::cout << '\n';
-        std::cout << "Normals:\n";
+                std::cerr << '\n';
+        std::cerr << "Normals:\n";
         for (std::vector<Vector3>::const_iterator itt = sep.normals.begin(); itt != sep.normals.end(); itt++)
-            std::cout << (*itt)(0) << ' ' << (*itt)(1) << ' ' << (*itt)(2) << '\n';
-        std::cout << "Normal Indices:\n";
+            std::cerr << (*itt)(0) << ' ' << (*itt)(1) << ' ' << (*itt)(2) << '\n';
+        std::cerr << "Normal Indices:\n";
         for (std::vector<int>::const_iterator itt = sep.normalindices.begin(); itt != sep.normalindices.end(); itt++)
             if (*itt != -1)
-                std::cout << *itt << ' ';
+                std::cerr << *itt << ' ';
             else
-                std::cout << '\n';
+                std::cerr << '\n';
     }
+}
+
+Vector3 lightFunc(const Vector3 &pos, const Vector3 &normal, const Material &material,
+        const std::vector<Light>& lights, const Vector3 &camerapos)
+{
+    Vector3 diffuse, specular;
+
+    /*
+    for (unsigned i = 0; i < lights.size(); i++)
+    {
+    }
+    */
+
+    std::cerr << "diffuse:\n" << (diffuse ^ material.diffuseColor);
+
+    Vector3 ret = material.ambientColor;
+    /*
+    std::cerr << "Color?\n" << ret;
+    ret = ret + (diffuse ^ material.diffuseColor);
+    std::cerr << "Color?\n" << ret;
+    ret = ret + (specular ^ material.specularColor);
+    std::cerr << "Color?\n" << ret;
+    */
+
+    return ret;
 }

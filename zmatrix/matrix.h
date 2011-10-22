@@ -93,6 +93,18 @@ public:
     MAKE_MATRIX_opeq_SCALAR(operator*=, *=)
     MAKE_MATRIX_opeq_SCALAR(operator/=, /=)
 
+    // ELEMENT WISE MULTIPLICATION
+    const Matrix& operator^=(const Matrix &rhs)
+    {
+        for (int i = 0; i < R*C; i++)
+            data_[i] *= rhs.data_[i];
+        return *this;
+    }
+    const Matrix& operator^(const Matrix &rhs) const
+    {
+        return Matrix(*this) ^= rhs;
+    }
+
     /// MATRIX v MATRIX addition/subtraction
     const Matrix& operator+=(const Matrix &rhs)
     {
@@ -106,6 +118,11 @@ public:
         for (int i = 0; i < R*C; i++)
             data_[i] -= rhs.data_[i];
         return *this;
+    }
+
+    const Matrix& operator+(const Matrix &rhs) const
+    {
+        return Matrix(*this) += rhs;
     }
 
     // Returns a new matrix that is the transpose of this one
@@ -150,6 +167,15 @@ public:
         for (int i = 0; i < R; i++)
             res += data_[i] * rhs.data_[i];
         return res;
+    }
+
+    void clamp(T min, T max)
+    {
+        for (int i = 0; i < R*C; i++)
+        {
+            data_[i] = data_[i] > max ? max : data_[i];
+            data_[i] = data_[i] < min ? min : data_[i];
+        }
     }
 
     // Returns the inverse of this matrix
@@ -305,8 +331,8 @@ typedef Matrix<data_t, 4, 1> Vector4;
 typedef Matrix<data_t, 3, 3> Matrix3;
 typedef Matrix<data_t, 4, 4> Matrix4;
 
+// Vector functions
 Vector3 makeVector3(data_t x, data_t y, data_t z);
-
 Vector4 makeVector4(data_t x, data_t y, data_t z, data_t w);
-
 Vector4 homogenize(const Vector3&);
+
