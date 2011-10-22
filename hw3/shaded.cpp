@@ -16,6 +16,7 @@ void rasterizeEdge(const Vector3 &, const Vector3 &, const Matrix4 &, Canvas &);
 Matrix4 createModelMatrix(const Transform &);
 Matrix4 createNormalMatrix(const Transform &);
 
+
 int main(int argc, char **argv)
 {
     if (argc != 4)

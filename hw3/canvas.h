@@ -82,7 +82,7 @@ public:
     // This drawPixel respects the zbuffer
     void drawPixel(unsigned x, unsigned y, float z, float r, float g, float b)
     {
-        if (x < 0 || x >= xres_ || y < 0 || y >= yres_)
+        if (x < 0 || x >= xres_ || y < 0 || y >= yres_ || z < -1)
             return;
 
         int i = y * xres_ + x;
