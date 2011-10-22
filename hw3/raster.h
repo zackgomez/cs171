@@ -117,6 +117,6 @@ void rasterizeTriangle(vertex verts[3], fragmentProcessor fp)
         }
     }
     // Clean up
-    delete data;
-    delete coords;
+    delete[] data;
+    delete[] coords;
 }

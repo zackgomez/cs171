@@ -51,11 +51,11 @@ struct debug_pixel
     void operator()(int x, int y, float *data)
     {
         /*
-        std::cout << "Drawing pixel at (" << x << ' ' << y << ") - "
+        std::cerr << "Drawing pixel at (" << x << ' ' << y << ") - "
             << '[' << data[0] << ' ' << data[1] << ' ' << data[2] << "]\n";
             */
 
-        canvas.drawPixel(x, y, 1, 1, 1);
+        canvas.drawPixel(x, y, data[2], 1, 1, 1);
     }
 
 private:
@@ -129,7 +129,7 @@ void render_scene(const Scene &scene, Canvas &canv)
 
                 // clean up
                 for (int i = 0; i < 3; i++)
-                    delete verts[i].data;
+                    delete[] verts[i].data;
 
                 // And update prevInd
                 prevInd = ind;

@@ -2,6 +2,7 @@
 #include <ostream>
 #include <cmath>
 #include <iostream>
+#include <cmath>
 
 class Canvas
 {
@@ -24,11 +25,13 @@ public:
         r_ = new float[xres * yres];
         b_ = new float[xres * yres];
         g_ = new float[xres * yres];
+        z_ = new float[xres * yres];
 
-        // Initialize to black
+        // Initialize to black, and infinite z
         for (unsigned i = 0; i < xres * yres; i++)
         {
             r_[i] = b_[i] = g_[i] = 0.0f;
+            z_[i] = HUGE_VAL;
         }
     }
 
@@ -37,6 +40,7 @@ public:
         delete[] r_;
         delete[] g_;
         delete[] b_;
+        delete[] z_;
     }
 
     int getPixelX(float n) const
@@ -64,6 +68,9 @@ public:
         if (x < 0 || x >= xres_ || y < 0 || y >= yres_)
             return;
 
+        // Clamp the colors
+        colorClamp(r,g,b);
+
         //std::cout << "Drawing pixel: (" << x << ',' << y << ")\n";
 
         int i = y * xres_ + x;
@@ -71,6 +78,27 @@ public:
         g_[i] = g;
         b_[i] = b;
     }
+
+    // This drawPixel respects the zbuffer
+    void drawPixel(unsigned x, unsigned y, float z, float r, float g, float b)
+    {
+        if (x < 0 || x >= xres_ || y < 0 || y >= yres_)
+            return;
+
+        int i = y * xres_ + x;
+        // Depth test
+        if (z > z_[i])
+            return;
+
+        // Clamp the colors
+        colorClamp(r,g,b);
+        //std::cout << "Drawing pixel: (" << x << ',' << y << ")\n";
+        r_[i] = r;
+        g_[i] = g;
+        b_[i] = b;
+        z_[i] = z;
+    }
+
 
     void drawLine(float x1, float y1, float x2, float y2)
     {
@@ -189,6 +217,21 @@ public:
     }
 
 
+    void colorClamp(float &r, float &g, float &b)
+    {
+        zeroOneClamp(r);
+        zeroOneClamp(g);
+        zeroOneClamp(b);
+    }
+
+    void zeroOneClamp(float &x)
+    {
+        if (x < 0)
+            x = 0;
+        else if (x > 1)
+            x = 1;
+    }
+
 private:
     float xmin_, xmax_;
     float ymin_, ymax_;
@@ -197,5 +240,7 @@ private:
     float *r_;
     float *g_;
     float *b_;
+    // The z buffer
+    float *z_;
 };
 
