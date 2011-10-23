@@ -100,7 +100,7 @@ public:
             data_[i] *= rhs.data_[i];
         return *this;
     }
-    const Matrix& operator^(const Matrix &rhs) const
+    Matrix operator^(const Matrix &rhs) const
     {
         return Matrix(*this) ^= rhs;
     }
@@ -120,13 +120,18 @@ public:
         return *this;
     }
 
-    const Matrix& operator+(const Matrix &rhs) const
+    Matrix operator+(const Matrix &rhs) const
     {
         return Matrix(*this) += rhs;
     }
 
+    Matrix operator-(const Matrix &rhs) const
+    {
+        return Matrix(*this) -= rhs;
+    }
+
     // Returns a new matrix that is the transpose of this one
-    const Matrix transpose() const
+    Matrix transpose() const
     {
         Matrix res;
         for (int r = 0; r < R; r++)
@@ -154,13 +159,14 @@ public:
     }
 
     // IN PLACE normalization
-    void normalize()
+    Matrix& normalize()
     {
         this->operator/=(magnitude());
+        return *this;
     }
 
     // computes the dot product of two n,1 (column vector) matrices
-    const T dot(const Matrix &rhs)
+    const T dot(const Matrix &rhs) const
     {
         assert(C == 1);
         T res = 0;

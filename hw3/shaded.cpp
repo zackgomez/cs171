@@ -9,12 +9,17 @@
 void parse_file(std::istream &input, Scene *output);
 
 void print_scene_info(const Scene &scene);
-void render_scene(const Scene &scene, Canvas &canv);
+void render_scene(const Scene &scene, Canvas &canv, int shadingMode);
+Matrix4 getCameraTransform(const Scene &scene);
 Matrix4 worldToNDCMatrix(const Scene &scene);
 Matrix4 createModelMatrix(const Transform &);
 Matrix4 createNormalMatrix(const Transform &);
-Vector3 lightFunc(const Vector3 &normal, const Vector3 &pos, const Material &material,
+Vector3 lightFunc(const Vector3 &pos, const Vector3 &normal, const Material &material,
         const std::vector<Light>& lights, const Vector3 &camerapos);
+
+static const int FLAT = 0;
+static const int GOURAUD = 1;
+static const int PHONG = 2;
 
 int main(int argc, char **argv)
 {
@@ -28,6 +33,12 @@ int main(int argc, char **argv)
     xRes = atoi(argv[2]);
     yRes = atoi(argv[3]);
 
+    if (lightMode != FLAT && lightMode != GOURAUD && lightMode != PHONG)
+    {
+        std::cerr << "Lighting mode must be 0, 1, or 2\n";
+        exit(1);
+    }
+
     Scene scene;
     parse_file(std::cin, &scene);
 
@@ -35,7 +46,7 @@ int main(int argc, char **argv)
     Canvas canv(-1, 1, -1, 1, xRes, yRes);
 
     print_scene_info(scene);
-    render_scene(scene, canv);
+    render_scene(scene, canv, lightMode);
 
     //std::fstream file("shaded.ppm", std::fstream::out);
     canv.display(std::cout, 255);
@@ -44,16 +55,20 @@ int main(int argc, char **argv)
     return 0;
 }
 
-struct debug_pixel
+/**
+ * This fragment processor does no extra processing.
+ * It expects the data to be like positions data[0-2] and color data[3-5].
+ */
+struct simple_shader
 {
-    debug_pixel(Canvas &canv) : canvas(canv) {}
+    simple_shader(Canvas &canv) : canvas(canv) {}
 
     void operator()(int x, int y, float *data)
     {
         /*
         std::cerr << "Drawing pixel at (" << x << ' ' << y << ") - "
             << '[' << data[0] << ' ' << data[1] << ' ' << data[2] << "] "
-            << "normal [" << data[3] << ' ' << data[4] << ' ' << data[5] << "]\n";
+            << "color [" << data[3] << ' ' << data[4] << ' ' << data[5] << "]\n";
             */
 
         //canvas.drawPixel(x, y, data[2], 1, 1, 1);
@@ -64,10 +79,44 @@ private:
     Canvas &canvas;
 };
 
-void render_scene(const Scene &scene, Canvas &canv)
+/**
+ * This FragmentProcessor implements phong shading.  It expects the data to
+ * include (x, y, z) ndc positions (0-2) and world position (3-5) and finally
+ * the normal vector (6-8).
+ */
+struct phong_shader
+{
+    phong_shader(Canvas &canv, const Material &material,
+            const std::vector<Light>& lights, const Vector3 &cameraPos) :
+        canvas_(canv),
+        material_(material),
+        lights_(lights),
+        cameraPos_(cameraPos)
+    {}
+
+    void operator()(int x, int y, float *data)
+    {
+        Vector3 worldCoord = makeVector3(data[3], data[4], data[5]);
+        Vector3 normal = makeVector3(data[6], data[7], data[8]);
+        Vector3 color = lightFunc(worldCoord, normal, material_, lights_, cameraPos_);
+
+        canvas_.drawPixel(x, y, data[2], color(0), color(1), color(2));
+    }
+
+private:
+    Canvas &canvas_;
+    const Material &material_;
+    const std::vector<Light> &lights_;
+    const Vector3 &cameraPos_;
+};
+
+void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
 {
     initRaster(&canv);
+    Matrix4 worldCameraMatrix = getCameraTransform(scene);
     Matrix4 viewProjectionMatrix = worldToNDCMatrix(scene);
+    const Vector3 cameraPos = scene.camera.position;
+    std::cerr << "CameraPos:\n" << cameraPos;
 
     std::vector<Separator>::const_iterator it = scene.separators.begin();
     for (; it != scene.separators.end(); it++)
@@ -77,21 +126,19 @@ void render_scene(const Scene &scene, Canvas &canv)
         for (unsigned i = 0; i < it->transforms.size(); i++)
         {
             modelMatrix = modelMatrix * createModelMatrix(it->transforms[i]);
-            normalMatrix = normalMatrix * createNormalMatrix(it->transforms[i]);
+            normalMatrix = createNormalMatrix(it->transforms[i]) * normalMatrix;
         }
-        std::cerr << "Model to world space matrix:\n" << modelMatrix;
-        //std::cout << "Normal matrix:\n" << normalMatrix;
         Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
-        //std::cout << "Full transform matrix:\n" << modelViewProjectionMatrix;
+
+        //std::cerr << "Model to world space matrix:\n" << modelMatrix;
+        std::cerr << "Normal matrix:\n" << normalMatrix;
+        std::cerr << "Full transform matrix:\n" << modelViewProjectionMatrix;
 
 
         const std::vector<Vector3>& points = it->points;
         const std::vector<int>& indices = it->indices;
         const std::vector<Vector3>& normals = it->normals;
         const std::vector<int>& normindices = it->normalindices;
-
-        // TODO......
-        const Vector3 cameraPos;
 
         int firstInd = -1;
         int prevInd = -1;
@@ -123,7 +170,8 @@ void render_scene(const Scene &scene, Canvas &canv)
             else
             {
                 // Cache points
-                Vector3 pts[3] = {points[firstInd], points[prevInd], points[ind]};
+                Vector3 worldCoords[3] = {points[firstInd], points[prevInd], points[ind]};
+                Vector3 ndcCoords[3] = {points[firstInd], points[prevInd], points[ind]};
                 Vector3 norms[3] = {normals[firstNormi], normals[prevNormi], normals[normi]};
                 // And update indexes
                 prevInd = ind;
@@ -131,53 +179,74 @@ void render_scene(const Scene &scene, Canvas &canv)
                 // Transform the points, do this now so we can check for backface culling
                 for (int i = 0; i < 3; i++)
                 {
-                    Vector4 coord = modelViewProjectionMatrix * homogenize(pts[i]);
+                    Vector4 coord = modelViewProjectionMatrix * homogenize(ndcCoords[i]);
                     coord /= coord(3);
-                    pts[i](0) = coord(0); pts[i](1) = coord(1); pts[i](2) = coord(2);
+                    ndcCoords[i] = makeVector3(coord(0), coord(1), coord(2));
+
+                    coord = modelMatrix * homogenize(worldCoords[i]);
+                    coord /= coord(3);
+                    worldCoords[i] = makeVector3(coord(0), coord(1), coord(2));
                 }
-                std::cerr << "Rasterizing triangle <" << pts[0](0) << ' ' << pts[0](1) << ' '
-                    << pts[0](2) << "> - <" << pts[1](0) << ' ' << pts[1](1) << ' '
-                    << pts[1](2) << "> - <" << pts[2](0) << ' ' << pts[2](1) << ' '
-                    << pts[2](2) << ">\n";
                 // Check for backface culling
                 // Z coordinate of cross product (v2 - v1) X (v0 - v1)
-                float z = (pts[2](0) - pts[1](0)) * (pts[0](1) - pts[1](1)) -
-                          (pts[0](0) - pts[1](0)) * (pts[2](1) - pts[1](1));
+                float z = (ndcCoords[2](0) - ndcCoords[1](0)) * (ndcCoords[0](1) - ndcCoords[1](1)) -
+                          (ndcCoords[0](0) - ndcCoords[1](0)) * (ndcCoords[2](1) - ndcCoords[1](1));
                 // If the triangle faces away.. don't draw
                 if (z <= 0)
                     continue;
 
-                vertex verts[3];
-                // Create vertices
+                // Now transform the normals
                 for (int i = 0; i < 3; i++)
                 {
-                    Vector3 coord = pts[i];
-                    // Transform the normal vector
                     Vector4 norm = homogenize(norms[i]);
                     norm = normalMatrix * norm;
                     norm /= norm(3);
                     // Use a shortcut to normalize
                     norm(3) = 0; norm.normalize();
-                    Vector3 normal; normal(0) = norm(0); normal(1) = norm(1); normal(2) = norm(2);
+                    norms[i] = makeVector3(norm(0), norm(1), norm(2));
+                }
 
-                    // Calculate the lighting
-                    Vector3 color = lightFunc(coord, normal, it->material, scene.lights, cameraPos);
-                    std::cerr << "Calculated color: (" << color(0) << ' ' << color(1) << ' ' << color(2) << ")\n";
+                Vector3 color;
+                // Calculate lighting once (FLAT)
+                if (shadingMode == FLAT)
+                    color = lightFunc((worldCoords[0] + worldCoords[1] + worldCoords[2])/3.0f,
+                            norms[0], it->material, scene.lights, cameraPos);
+
+                vertex verts[3];
+                // Create vertices
+                for (int i = 0; i < 3; i++)
+                {
+                    Vector3 worldCoord = worldCoords[i];
+                    Vector3 ndcCoord = ndcCoords[i];
+                    Vector3 normal = norms[i];
+                    //std::cerr << "Normal vector: [" << normal(0) << ' ' << normal(1) << ' ' << normal(2) << "]\n";
+
+                    // Calculate the lighting (GOURUAD)
+                    if (shadingMode == GOURAUD)
+                        color = lightFunc(worldCoord, normal, it->material, scene.lights, cameraPos);
 
                     // Then stuff the vertex structure
-                    const int NUM_DATA = 6;
+                    // The data differs for flat/gouraud vs phong  see the
+                    // definitions of simple_shader and phong_shader
+                    const int NUM_DATA = 9;
                     verts[i].num_data = NUM_DATA;
                     verts[i].data = new float[NUM_DATA];
-                    verts[i].data[0] = coord(0);
-                    verts[i].data[1] = coord(1);
-                    verts[i].data[2] = coord(2);
-                    verts[i].data[3] = color(0);
-                    verts[i].data[4] = color(1);
-                    verts[i].data[5] = color(2);
+                    verts[i].data[0] = ndcCoord(0);
+                    verts[i].data[1] = ndcCoord(1);
+                    verts[i].data[2] = ndcCoord(2);
+                    verts[i].data[3] = shadingMode == PHONG ? worldCoord(0) : color(0);
+                    verts[i].data[4] = shadingMode == PHONG ? worldCoord(1) : color(1);
+                    verts[i].data[5] = shadingMode == PHONG ? worldCoord(2) : color(2);
+                    verts[i].data[6] = normal(0);
+                    verts[i].data[7] = normal(1);
+                    verts[i].data[8] = normal(2);
                 }
 
                 // RASTERIZE GO
-                rasterizeTriangle(verts, debug_pixel(canv));
+                if (shadingMode == PHONG)
+                    rasterizeTriangle(verts, phong_shader(canv, it->material, scene.lights, cameraPos));
+                else
+                    rasterizeTriangle(verts, simple_shader(canv));
 
                 // clean up
                 for (int i = 0; i < 3; i++)
@@ -187,9 +256,8 @@ void render_scene(const Scene &scene, Canvas &canv)
     }
 }
 
-Matrix4 worldToNDCMatrix(const Scene &scene)
+Matrix4 getCameraTransform(const Scene &scene)
 {
-    const Camera &cam = scene.camera;
     const Vector3 &pos = scene.camera.position;
     const Vector4 &rot = scene.camera.orientation;
 
@@ -197,6 +265,14 @@ Matrix4 worldToNDCMatrix(const Scene &scene)
     // C^-1 = R^-1 * T^-1
     Matrix4 ret = make_rotation(rot(0), rot(1), rot(2), -rot(3));
     ret = ret * make_translation(-pos(0), -pos(1), -pos(2));
+    return ret;
+}
+
+Matrix4 worldToNDCMatrix(const Scene &scene)
+{
+    const Camera &cam = scene.camera;
+
+    Matrix4 ret = getCameraTransform(scene);
     //std::cout << "World to camera matrix:\n" << ret;
 
     // camera to NDC
@@ -289,22 +365,25 @@ Vector3 lightFunc(const Vector3 &pos, const Vector3 &normal, const Material &mat
 {
     Vector3 diffuse, specular;
 
-    /*
     for (unsigned i = 0; i < lights.size(); i++)
     {
+        // Calculate the diffuse contribution
+        float NdotL = (normal.dot((lights[i].position - pos).normalize()));
+        Vector3 ddiffuse = lights[i].color * NdotL;
+        ddiffuse.clamp(0, HUGE_VAL);
+        diffuse += ddiffuse;
+
+        // Calculate the specular contribution
+        float k = normal.dot(((camerapos - pos).normalize() + (lights[i].position - pos).normalize()).normalize());
+        k = k > 0 ? k : 0; // zeroclip
+        Vector3 dspecular = lights[i].color * powf(k, material.shininess);
+        dspecular.clamp(0, HUGE_VAL);
+        specular += dspecular;
     }
-    */
 
-    std::cerr << "diffuse:\n" << (diffuse ^ material.diffuseColor);
+    diffuse.clamp(0, 1);
+    Vector3 color = material.ambientColor + (diffuse ^ material.diffuseColor) + (specular ^ material.specularColor);
+    color.clamp(0, 1);
 
-    Vector3 ret = material.ambientColor;
-    /*
-    std::cerr << "Color?\n" << ret;
-    ret = ret + (diffuse ^ material.diffuseColor);
-    std::cerr << "Color?\n" << ret;
-    ret = ret + (specular ^ material.specularColor);
-    std::cerr << "Color?\n" << ret;
-    */
-
-    return ret;
+    return color;
 }
