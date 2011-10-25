@@ -113,14 +113,14 @@ private:
 void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
 {
     initRaster(&canv);
-    Matrix4 worldCameraMatrix = getCameraTransform(scene);
-    Matrix4 viewProjectionMatrix = worldToNDCMatrix(scene);
+    const Matrix4 viewProjectionMatrix = worldToNDCMatrix(scene);
     const Vector3 cameraPos = scene.camera.position;
     std::cerr << "CameraPos:\n" << cameraPos;
 
     std::vector<Separator>::const_iterator it = scene.separators.begin();
     for (; it != scene.separators.end(); it++)
     {
+        std::cerr << " --- SEPARATOR ---\n";
         Matrix4 modelMatrix = make_identity<float,4>();
         Matrix4 normalMatrix = make_identity<float,4>();
         for (unsigned i = 0; i < it->transforms.size(); i++)
@@ -128,11 +128,12 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
             modelMatrix = modelMatrix * createModelMatrix(it->transforms[i]);
             normalMatrix = createNormalMatrix(it->transforms[i]) * normalMatrix;
         }
-        Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
+        const Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
 
-        //std::cerr << "Model to world space matrix:\n" << modelMatrix;
-        std::cerr << "Normal matrix:\n" << normalMatrix;
+        std::cerr << "Model to world space matrix:\n" << modelMatrix;
+        std::cerr << "World to NDC matrix:\n" << viewProjectionMatrix;
         std::cerr << "Full transform matrix:\n" << modelViewProjectionMatrix;
+        std::cerr << "Normal matrix:\n" << normalMatrix;
 
 
         const std::vector<Vector3>& points = it->points;
@@ -195,11 +196,18 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
                 if (z <= 0)
                     continue;
 
+                /*
+                std::cerr << "Drawing Triangle"
+                    << ": [" << ndcCoords[0](0) << ' ' << ndcCoords[0](1) << ' ' << ndcCoords[0](2)
+                    << "] - [" << ndcCoords[1](0) << ' ' << ndcCoords[1](1) << ' ' << ndcCoords[1](2)
+                    << "] - [" << ndcCoords[2](0) << ' ' << ndcCoords[2](1) << ' ' << ndcCoords[2](2) << "]\n";
+                    */
+
+
                 // Now transform the normals
                 for (int i = 0; i < 3; i++)
                 {
-                    Vector4 norm = homogenize(norms[i]);
-                    norm = normalMatrix * norm;
+                    Vector4 norm = normalMatrix * homogenize(norms[i]);
                     norm /= norm(3);
                     // Use a shortcut to normalize
                     norm(3) = 0; norm.normalize();
@@ -210,7 +218,7 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
                 // Calculate lighting once (FLAT)
                 if (shadingMode == FLAT)
                     color = lightFunc((worldCoords[0] + worldCoords[1] + worldCoords[2])/3.0f,
-                            norms[0], it->material, scene.lights, cameraPos);
+                            (norms[0] + norms[1] + norms[2]) / 3.0f, it->material, scene.lights, cameraPos);
 
                 vertex verts[3];
                 // Create vertices
@@ -219,7 +227,9 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
                     Vector3 worldCoord = worldCoords[i];
                     Vector3 ndcCoord = ndcCoords[i];
                     Vector3 normal = norms[i];
-                    //std::cerr << "Normal vector: [" << normal(0) << ' ' << normal(1) << ' ' << normal(2) << "]\n";
+
+                    if (i == 0)
+                        std::cerr << "Normal Vector: [" << normal(0) << ' ' << normal(1) << ' ' << normal(2) << "]\n";
 
                     // Calculate the lighting (GOURUAD)
                     if (shadingMode == GOURAUD)

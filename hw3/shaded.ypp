@@ -110,7 +110,7 @@ matline:
 normlines:
     normline | normlines normline;
 normline:
-    VECTOR sqopen triples sqclose {separator.normals = triples;}
+    VECTOR sqopen triples sqclose {separator.normals = triples; triples.clear();}
 
 
 singles:
