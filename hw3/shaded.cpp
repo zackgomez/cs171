@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
+#include <cstring>
 #include "shaded.h"
 #include "canvas.h"
 #include "matrix.h"
@@ -9,7 +10,7 @@
 void parse_file(std::istream &input, Scene *output);
 
 void print_scene_info(const Scene &scene);
-void render_scene(const Scene &scene, Canvas &canv, int shadingMode);
+void render_scene(const Scene &scene, Canvas &canv, int shadingMode, bool eyelight);
 Matrix4 getCameraTransform(const Scene &scene);
 Matrix4 worldToNDCMatrix(const Scene &scene);
 Matrix4 createModelMatrix(const Transform &);
@@ -23,15 +24,18 @@ static const int PHONG = 2;
 
 int main(int argc, char **argv)
 {
-    if (argc != 4)
+    if (argc != 4 && argc != 5)
     {
-        std::cerr << "usage: shaded n xRes yRes\n";
+        std::cerr << "usage: shaded n xRes yRes [-eyelight]\n";
         exit(1);
     }
-    unsigned lightMode, xRes, yRes;
+    int lightMode, xRes, yRes;
     lightMode = atoi(argv[1]);
     xRes = atoi(argv[2]);
     yRes = atoi(argv[3]);
+    
+    bool eyelight = false;
+    eyelight = argc == 5 && strcmp(argv[4], "-eyelight") == 0;
 
     if (lightMode != FLAT && lightMode != GOURAUD && lightMode != PHONG)
     {
@@ -45,8 +49,8 @@ int main(int argc, char **argv)
     // Canvas dimensions are NDC
     Canvas canv(-1, 1, -1, 1, xRes, yRes);
 
-    print_scene_info(scene);
-    render_scene(scene, canv, lightMode);
+    //print_scene_info(scene);
+    render_scene(scene, canv, lightMode, eyelight);
 
     //std::fstream file("shaded.ppm", std::fstream::out);
     canv.display(std::cout, 255);
@@ -110,12 +114,24 @@ private:
     const Vector3 &cameraPos_;
 };
 
-void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
+void render_scene(const Scene &scene, Canvas &canv, int shadingMode, bool eyelight)
 {
     initRaster(&canv);
     const Matrix4 viewProjectionMatrix = worldToNDCMatrix(scene);
     const Vector3 cameraPos = scene.camera.position;
     std::cerr << "CameraPos:\n" << cameraPos;
+    std::vector<Light> lights = scene.lights;
+
+    // Eyelight, is a dim light set at the camera position
+    if (eyelight)
+    {
+        // First get the intensity as 10% of the intensity of the first light
+        float intensity = lights[0].color.magnitude() * 0.10f;
+        // Then add a light at the camera position with 'white' color of
+        // the calculated intensity
+        Light l; l.position = cameraPos; l.color = makeVector3(1, 1, 1) * intensity;
+        lights.push_back(l);
+    }
 
     std::vector<Separator>::const_iterator it = scene.separators.begin();
     for (; it != scene.separators.end(); it++)
@@ -126,7 +142,7 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
         for (unsigned i = 0; i < it->transforms.size(); i++)
         {
             modelMatrix = modelMatrix * createModelMatrix(it->transforms[i]);
-            normalMatrix = createNormalMatrix(it->transforms[i]) * normalMatrix;
+            normalMatrix = normalMatrix * createNormalMatrix(it->transforms[i]);
         }
         const Matrix4 modelViewProjectionMatrix = viewProjectionMatrix * modelMatrix;
 
@@ -204,6 +220,7 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
                     */
 
 
+                //std::cerr << "Normal Matrix?:\n" << normalMatrix;
                 // Now transform the normals
                 for (int i = 0; i < 3; i++)
                 {
@@ -218,7 +235,7 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
                 // Calculate lighting once (FLAT)
                 if (shadingMode == FLAT)
                     color = lightFunc((worldCoords[0] + worldCoords[1] + worldCoords[2])/3.0f,
-                            (norms[0] + norms[1] + norms[2]) / 3.0f, it->material, scene.lights, cameraPos);
+                            (norms[0] + norms[1] + norms[2]) / 3.0f, it->material, lights, cameraPos);
 
                 vertex verts[3];
                 // Create vertices
@@ -228,12 +245,9 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
                     Vector3 ndcCoord = ndcCoords[i];
                     Vector3 normal = norms[i];
 
-                    if (i == 0)
-                        std::cerr << "Normal Vector: [" << normal(0) << ' ' << normal(1) << ' ' << normal(2) << "]\n";
-
                     // Calculate the lighting (GOURUAD)
                     if (shadingMode == GOURAUD)
-                        color = lightFunc(worldCoord, normal, it->material, scene.lights, cameraPos);
+                        color = lightFunc(worldCoord, normal, it->material, lights, cameraPos);
 
                     // Then stuff the vertex structure
                     // The data differs for flat/gouraud vs phong  see the
@@ -254,7 +268,7 @@ void render_scene(const Scene &scene, Canvas &canv, int shadingMode)
 
                 // RASTERIZE GO
                 if (shadingMode == PHONG)
-                    rasterizeTriangle(verts, phong_shader(canv, it->material, scene.lights, cameraPos));
+                    rasterizeTriangle(verts, phong_shader(canv, it->material, lights, cameraPos));
                 else
                     rasterizeTriangle(verts, simple_shader(canv));
 
@@ -374,6 +388,7 @@ Vector3 lightFunc(const Vector3 &pos, const Vector3 &normal, const Material &mat
         const std::vector<Light>& lights, const Vector3 &camerapos)
 {
     Vector3 diffuse, specular;
+    //std::cerr << "Lighting Position: [" << pos(0) << ' ' << pos(1) << ' ' << pos(2) << "]\n";
 
     for (unsigned i = 0; i < lights.size(); i++)
     {
