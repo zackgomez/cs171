@@ -1,0 +1,14 @@
+I did the eyelight extra credit.  I add a grayscale light of intensity equal
+to 10% the magnitude of the color of the first light...
+
+'make' to build
+
+Run with something similar to this
+./shaded 2 500 500 -eyelight < hw3_data/sphere.iv | pnmtopng > out.png
+
+
+There will be debug information printed to stderr.  You can just ignore it.
+
+I used Bill's raster functions save that instead of a function pointer I have
+it take in a function object using templates.  This lets me pass in structs
+and classes overloading the operator()- very useful for phong shading.
