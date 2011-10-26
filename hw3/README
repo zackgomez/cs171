@@ -5,10 +5,25 @@ to 10% the magnitude of the color of the first light...
 
 Run with something similar to this
 ./shaded 2 500 500 -eyelight < hw3_data/sphere.iv | pnmtopng > out.png
-
-
 There will be debug information printed to stderr.  You can just ignore it.
 
+
+
+
+NOTES
+-----
 I used Bill's raster functions save that instead of a function pointer I have
 it take in a function object using templates.  This lets me pass in structs
-and classes overloading the operator()- very useful for phong shading.
+and classes overloading the operator() - very useful for phong shading.
+
+My Z-Buffer implementation is perhaps slightly inefficient - depth test occurs
+in the canvas class, which is called by the drawPixel function, this results
+in more drawPixel calls than necessary in cases where fragments would be
+thrown out.
+
+I'm a little sad that the next assignment doesn't use code from this.. I didn't
+clean it up much as a result.  It's a bit messier than the previous assignments.
+
+The render_scene function is very long - however, none of the parts in
+it necessarily need to live in separate functions, as they would only be called
+in render_scene.
