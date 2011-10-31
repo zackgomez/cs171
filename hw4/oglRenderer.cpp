@@ -7,6 +7,12 @@ void parse_file(std::istream &input, Scene *output);
 
 // Our scene
 Scene scene;
+bool wireframe;
+bool translating, zooming;
+int mouseX, mouseY;
+
+Vector3 mouseTrans;
+float mouseZoom;
 
 /** PROTOTYPES **/
 void initLights();
@@ -30,26 +36,49 @@ void redraw()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glPushMatrix();
-    // TODO apply mouse transformation now
+    // apply mouse transformation now
+    GLfloat oldMatrix[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, oldMatrix);
+    glLoadIdentity();
+
+    glTranslatef(mouseTrans(0), mouseTrans(1), mouseZoom);
+    glMultMatrixf(oldMatrix);
+
+   
+    
     for (unsigned i = 0; i < scene.separators.size(); i++)
     {
         const Separator &sep = scene.separators[i];
         initMaterial(sep.material);
         glPushMatrix();
 
-        glBegin(GL_POLYGON);
+        for (unsigned j = 0; j < sep.transforms.size(); j++)
+        {
+            const Transform &trans = sep.transforms[j];
+            glTranslatef(trans.translation(0), trans.translation(1), trans.translation(2));
+            glRotatef(trans.rotation(3) * 180 / M_PI, trans.rotation(0), trans.rotation(1), trans.rotation(2));
+            glScalef(trans.scaling(0), trans.scaling(1), trans.scaling(2));
+        }
+
+        GLenum renderType = wireframe ? GL_LINE_LOOP : GL_POLYGON;
+
+        glBegin(renderType);
         for (unsigned j = 0; j < sep.indices.size(); j++)
         {
             int idx = sep.indices[j];
+            int nidx = sep.normalindices[j];
             if (idx == -1)
             {
                 glEnd();
-                glBegin(GL_POLYGON);
+                glBegin(renderType);
                 continue;
             }
 
             Vector3 pt = sep.points[idx];
+            Vector3 norm = sep.normals[nidx];
+            glNormal3f(norm(0), norm(1), norm(2));
             glVertex3f(pt(0), pt(1), pt(2));
+
         }
         glEnd();
 
@@ -93,8 +122,54 @@ void keyfunc(GLubyte key, GLint x, GLint y)
     // escape or q or Q
     if (key == 27 || key == 'q' || key =='Q')
         exit(0);
-    // TODO check for f == flat | g == gourad | w == toggle wireframe
-    // use glShadeMode for f/g
+    if (key == 'w' || key == 'W')
+    {
+        wireframe = !wireframe;
+        glutPostRedisplay();
+    }
+    if (key == 'f' || key == 'F')
+    {
+        glShadeModel(GL_FLAT);
+        glutPostRedisplay();
+    }
+    if (key == 'g' || key == 'G')
+    {
+        glShadeModel(GL_SMOOTH);
+        glutPostRedisplay();
+    }
+}
+
+void mousefunc(int button, int state, int x, int y)
+{
+    bool shift = glutGetModifiers() & GLUT_ACTIVE_SHIFT;
+    if (button == GLUT_MIDDLE_BUTTON && !shift)
+    {
+        translating = (state == GLUT_DOWN);
+        mouseX = x; mouseY = y;
+        glutPostRedisplay();
+    }
+    if (button == GLUT_MIDDLE_BUTTON && shift)
+    {
+        zooming = (state == GLUT_DOWN);
+        mouseX = x; mouseY = y;
+        glutPostRedisplay();
+    }
+}
+
+void motionfunc(int x, int y)
+{
+    if (translating)
+    {
+        mouseTrans += makeVector3((x - mouseX) / 500.0f, (mouseY - y) / 500.0f, 0.0f);
+        mouseX = x; mouseY = y;
+        glutPostRedisplay();
+    }
+    if (zooming)
+    {
+        mouseZoom += (mouseY - y) / 500.f;
+        mouseX = x; mouseY = y;
+        glutPostRedisplay();
+    }
 }
 
 /** Utility functions **/
@@ -111,15 +186,12 @@ void initLights() {
         GLfloat diff[]= { light.color(0), light.color(1), light.color(2) };
         GLfloat spec[]= { light.color(0), light.color(1), light.color(2) };
         GLfloat lightpos[]= { light.position(0), light.position(1), light.position(2) };
-        // not specified in .iv file, just make it 1.0 
-        GLfloat shiny = 1.0f; 
 
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
         glLightfv(GL_LIGHT0 + i, GL_AMBIENT, amb);
         glLightfv(GL_LIGHT0 + i, GL_DIFFUSE, diff);
         glLightfv(GL_LIGHT0 + i, GL_SPECULAR, spec);
         glLightfv(GL_LIGHT0 + i, GL_POSITION, lightpos);
-        glLightf(GL_LIGHT0 + i, GL_SHININESS, shiny);
         glEnable(GL_LIGHT0 + i);
     }
 
@@ -165,7 +237,6 @@ void initGL()
 
     const Camera& cam = scene.camera;
     
-    float mat[16];
     // Set up projection and modelview matrices ("camera" settings) 
     // Look up these functions to see what they're doing.
     glMatrixMode(GL_PROJECTION);
@@ -178,18 +249,13 @@ void initGL()
     // change this to a transform for the camera
     glRotatef(-cam.orientation(3) * 180.0 / M_PI, cam.orientation(0), cam.orientation(1), cam.orientation(2));
     glTranslatef(-cam.position(0), -cam.position(1), -cam.position(2));
-    glGetFloatv(GL_MODELVIEW_MATRIX, mat);
-
-    for (int i = 0; i < 16; i++)
-    {
-        if (i % 4 == 0 && i != 0)
-            std::cout << '\n';
-        std::cout << mat[i] << ' ';
-    }
-    std::cout << '\n';
 
     // set light parameters
     initLights();
+
+    wireframe = false;
+    mouseTrans = makeVector3(0, 0, 0);
+    mouseZoom = 0.0f;
 }
 
 /**
@@ -222,6 +288,8 @@ int main(int argc, char* argv[])
     glutDisplayFunc(redraw);
     glutReshapeFunc(resize);
     glutKeyboardFunc(keyfunc);
+    glutMouseFunc(mousefunc);
+    glutMotionFunc(motionfunc);
 
     // From here on, GLUT has control,
     glutMainLoop();
