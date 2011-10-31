@@ -187,7 +187,7 @@ void motionfunc(int x, int y)
     if (rotating)
     {
         int delX = x - mouseX;
-        int delY = mouseY - y;
+        int delY = y - mouseY;
         Vector3 dragLine = makeVector3(delY, delX, 0).normalize();
         float angle = sqrtf(delX * delX + delY * delY) / 100.0f;
 
@@ -272,7 +272,7 @@ void initGL()
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    // change this to a transform for the camera
+    // Camera transform
     glRotatef(-cam.orientation(3) * 180.0 / M_PI, cam.orientation(0), cam.orientation(1), cam.orientation(2));
     glTranslatef(-cam.position(0), -cam.position(1), -cam.position(2));
 
@@ -292,7 +292,18 @@ void initGL()
  */
 int main(int argc, char* argv[])
 {
-    // TODO read this from args (also xdim ydim)
+    if (argc < 3)
+    {
+        std::cout << "usage: " << argv[0] << " <xRes> <yRes> < <iv-file>\n";
+        exit(1);
+    }
+    int xdim = atoi(argv[1]);
+    int ydim = atoi(argv[2]);
+    if (xdim == 0 || ydim == 0)
+    {
+        std::cout << "usage: " << argv[0] << " <xRes> <yRes> < <iv-file>\n";
+        exit(1);
+    }
     parse_file(std::cin, &scene);
     
     // OpenGL will take out any arguments intended for its use here.
@@ -304,7 +315,7 @@ int main(int argc, char* argv[])
     // These options aren't really necessary but are here for examples.
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH);
 
-    glutInitWindowSize(800, 800);
+    glutInitWindowSize(xdim, ydim);
     glutInitWindowPosition(300, 100);
 
     glutCreateWindow("CS171 HW4 - Zack Gomez");
