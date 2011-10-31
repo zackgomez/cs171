@@ -1,0 +1,195 @@
+%{
+#include <FlexLexer.h>
+#include <iostream>
+#include <cstring>
+#include "parser.h"
+#include "transforms.h"
+
+int yyerror(const char *s);
+int yylex();
+
+static Scene *scene;
+
+static Camera camera;
+static Separator separator;
+static Light light;
+static Transform transform;
+
+// Used to communicate
+static Vector3 triple;
+static Vector4 quad;
+static std::vector<Vector3> triples;
+static std::vector<int> singles;
+
+void clear_separator();
+void clear_transforms();
+void clear_light();
+
+%}
+
+%union
+{
+    float fval;
+}
+
+%defines
+
+%token <fval> NUMBER
+%token PCAMERA POS ORIENT NDIST FDIST LEFT RIGHT TOP BOTTOM
+%token SEPARATOR TRANSFORM COORDTHREE POINT IFACESET TRANSLAT
+%token SFACTOR ROT COORDINDEX LBRACE RBRACE LBRACKET RBRACKET
+%token COMMA POINTLIGHT LOCATION COLOR NORMALINDEX MATERIAL
+%token AMBIENTCOLOR DIFFUSECOLOR SPECULARCOLOR SHININESS NORMAL
+%token VECTOR
+
+%%
+blocks:
+    block | block blocks ;
+block:
+    camerablock | lightblock | sepblock ;
+
+camerablock:
+    PCAMERA open cameralines close { scene->camera = camera; };
+cameralines:
+    cameraline | cameralines cameraline;
+cameraline:
+    POS triple {camera.position = triple;}
+    | ORIENT quad {camera.orientation = quad;}
+    | NDIST NUMBER {camera.nearDistance = $2;}
+    | FDIST NUMBER {camera.farDistance = $2;}
+    | LEFT NUMBER {camera.left = $2; }
+    | RIGHT NUMBER {camera.right = $2; } 
+    | TOP NUMBER {camera.top = $2; }
+    | BOTTOM NUMBER {camera.bottom = $2; }
+    ;
+
+lightblock:
+    POINTLIGHT open lightlines close { scene->lights.push_back(light); clear_light(); }
+lightlines:
+    lightline | lightlines lightline;
+lightline:
+    LOCATION triple { light.position = triple; }
+    COLOR triple { light.color = triple; }
+
+sepblock:
+    SEPARATOR open sepitems close { scene->separators.push_back(separator); clear_separator(); }
+sepitems:
+    sepitem | sepitem sepitems;
+sepitem:
+    TRANSFORM open translines close { separator.transforms.push_back(transform); clear_transforms();}
+    | MATERIAL open matlines close { /* Filled in during Material parsing */ }
+    | COORDTHREE open POINT sqopen triples sqclose close { separator.points = triples; triples.clear(); }
+    | IFACESET open ifslines close { /* Work taken care of by ifsline */ }
+    | NORMAL open normlines close
+    ;
+
+translines:
+    transline | transline translines;
+transline:
+    TRANSLAT triple { transform.translation = triple; }
+    | SFACTOR triple { transform.scaling = triple; }
+    | ROT quad { transform.rotation = quad; }
+    ;
+
+ifslines:
+    ifsline | ifsline ifslines;
+ifsline:
+    COORDINDEX sqopen singles sqclose {separator.indices = singles; singles.clear();}
+    | NORMALINDEX sqopen singles sqclose {separator.normalindices = singles; singles.clear();}
+    ;
+
+matlines:
+    matline | matlines matline;
+matline:
+    AMBIENTCOLOR triple { separator.material.ambientColor = triple; }
+    | DIFFUSECOLOR triple { separator.material.diffuseColor = triple; }
+    | SPECULARCOLOR triple { separator.material.specularColor = triple; }
+    | SHININESS NUMBER { separator.material.shininess = $2; }
+    ;
+
+normlines:
+    normline | normlines normline;
+normline:
+    VECTOR sqopen triples sqclose {separator.normals = triples; triples.clear();}
+
+
+singles:
+    NUMBER { assert($1 == static_cast<int>($1)); singles.push_back($1); }
+    | singles COMMA NUMBER { assert($3 == static_cast<int>($3)); singles.push_back($3); }
+    ;
+
+triple: NUMBER NUMBER NUMBER { triple(0) = $1; triple(1) = $2; triple(2) = $3;};
+triples:
+    triple { triples.push_back(triple); }
+    | triples COMMA triple {triples.push_back(triple); }
+    ;
+
+quad: NUMBER NUMBER NUMBER NUMBER {quad(0) = $1; quad(1) = $2; quad(2) = $3; quad(3) = $4;};
+
+open: LBRACE;
+close: RBRACE;
+sqopen: LBRACKET;
+sqclose: RBRACKET;
+
+%%
+
+static FlexLexer *lexer;
+
+int yyerror(const char *s)
+{
+    std::cerr << "Parse error: " << s << std::endl;
+    return 0;
+}
+
+int yylex()
+{
+    return lexer->yylex();
+}
+
+void clear_separator()
+{
+    separator.transforms.clear();
+    clear_transforms();
+
+    separator.points.clear();
+    separator.indices.clear();
+    separator.normals.clear();
+    separator.normalindices.clear();
+
+    separator.material.ambientColor = makeVector3(0.2, 0.2, 0.2);
+    separator.material.diffuseColor = makeVector3(0.8, 0.8, 0.8);
+    separator.material.specularColor = makeVector3(0.0, 0.0, 0.0);
+    separator.material.shininess = 0.2;
+}
+
+void clear_transforms()
+{
+    // Default to identity transforms
+    transform.translation = makeVector3(0, 0, 0);
+    transform.rotation    = makeVector4(0, 0, 1, 0);
+    transform.scaling     = makeVector3(1, 1, 1);
+}
+
+void clear_light()
+{
+    // Revert light to defaults
+    light.position = makeVector3(0, 0, 1);
+    light.color = makeVector3(1, 1, 1);
+}
+
+void parse_file(std::istream &input, Scene *output)
+{
+    lexer = new yyFlexLexer(&input);
+    scene = output;
+
+    clear_separator();
+    clear_light();
+
+    if (yyparse())
+    {
+        std::cerr << "Parse Failed!" << std::endl;
+        exit(1);
+    }
+
+    delete lexer;
+}
