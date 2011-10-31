@@ -4,7 +4,7 @@ LDFLAGS=-lGL -lglut
 
 all: oglRenderer
 
-oglRenderer: oglRenderer.o parser.tab.o parser.yy.o matrix.o
+oglRenderer: oglRenderer.o parser.tab.o parser.yy.o matrix.o transforms.o
 	g++ $(LDFLAGS) $(CXXFLAGS) -o $@ $^
 
 parser.tab.cpp parser.tab.hpp: parser.ypp
@@ -16,5 +16,8 @@ parser.yy.cpp: parser.lex
 matrix.o: $(ZMATRIX)/matrix.cpp
 	g++ $(CXXFLAGS) -c $^
 
+transforms.o: $(ZMATRIX)/transforms.cpp
+	g++ $(CXXFLAGS) -c $^
+
 clean:
-	rm -f *.o oglRenderer parser.yy.cpp parser.tab.cpp parser.tab.hpp matrix.o
+	rm -f *.o oglRenderer parser.yy.cpp parser.tab.cpp parser.tab.hpp matrix.o transforms.o

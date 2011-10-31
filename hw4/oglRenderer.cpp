@@ -2,16 +2,18 @@
 #include "GL/gl.h"
 #include "GL/glut.h"
 #include "parser.h"
+#include "transforms.h"
 
 void parse_file(std::istream &input, Scene *output);
 
 // Our scene
 Scene scene;
 bool wireframe;
-bool translating, zooming;
+bool translating, zooming, rotating;
 int mouseX, mouseY;
 
 Vector3 mouseTrans;
+Matrix4 mouseRot;
 float mouseZoom;
 
 /** PROTOTYPES **/
@@ -36,12 +38,18 @@ void redraw()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glPushMatrix();
-    // apply mouse transformation now
+    // apply mouse transformations
     GLfloat oldMatrix[16];
     glGetFloatv(GL_MODELVIEW_MATRIX, oldMatrix);
     glLoadIdentity();
 
     glTranslatef(mouseTrans(0), mouseTrans(1), mouseZoom);
+
+    glTranslatef(0, 0, -3);
+    Matrix4 columnMajor = mouseRot.transpose();
+    glMultMatrixf(&columnMajor(0));
+    glTranslatef(0, 0, 3);
+
     glMultMatrixf(oldMatrix);
 
    
@@ -154,6 +162,12 @@ void mousefunc(int button, int state, int x, int y)
         mouseX = x; mouseY = y;
         glutPostRedisplay();
     }
+    if (button == GLUT_LEFT_BUTTON)
+    {
+        rotating = (state == GLUT_DOWN);
+        mouseX = x; mouseY = y;
+        glutPostRedisplay();
+    }
 }
 
 void motionfunc(int x, int y)
@@ -167,6 +181,18 @@ void motionfunc(int x, int y)
     if (zooming)
     {
         mouseZoom += (mouseY - y) / 500.f;
+        mouseX = x; mouseY = y;
+        glutPostRedisplay();
+    }
+    if (rotating)
+    {
+        int delX = x - mouseX;
+        int delY = mouseY - y;
+        Vector3 dragLine = makeVector3(delY, delX, 0).normalize();
+        float angle = sqrtf(delX * delX + delY * delY) / 100.0f;
+
+        mouseRot = make_rotation(dragLine(0), dragLine(1), 0, angle) * mouseRot;
+
         mouseX = x; mouseY = y;
         glutPostRedisplay();
     }
@@ -256,6 +282,7 @@ void initGL()
     wireframe = false;
     mouseTrans = makeVector3(0, 0, 0);
     mouseZoom = 0.0f;
+    mouseRot = make_identity<float, 4>();
 }
 
 /**
