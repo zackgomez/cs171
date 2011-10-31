@@ -1,18 +1,16 @@
 #include <iostream>
-
 #include "GL/gl.h"
 #include "GL/glut.h"
-
 #include "parser.h"
 
-using namespace std;
+void parse_file(std::istream &input, Scene *output);
 
 // Our scene
 Scene scene;
 
 /** PROTOTYPES **/
 void initLights();
-void initMaterial();
+void initMaterial(const Material &mat);
 void redraw();
 void initGL();
 void resize(GLint w, GLint h);
@@ -31,7 +29,33 @@ void redraw()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // TODO do this shiiiit
+    glPushMatrix();
+    // TODO apply mouse transformation now
+    for (unsigned i = 0; i < scene.separators.size(); i++)
+    {
+        const Separator &sep = scene.separators[i];
+        initMaterial(sep.material);
+        glPushMatrix();
+
+        glBegin(GL_POLYGON);
+        for (unsigned j = 0; j < sep.indices.size(); j++)
+        {
+            int idx = sep.indices[j];
+            if (idx == -1)
+            {
+                glEnd();
+                glBegin(GL_POLYGON);
+                continue;
+            }
+
+            Vector3 pt = sep.points[idx];
+            glVertex3f(pt(0), pt(1), pt(2));
+        }
+        glEnd();
+
+        glPopMatrix();
+    }
+    glPopMatrix();
 
     glutSwapBuffers();
 }
@@ -80,20 +104,24 @@ void keyfunc(GLubyte key, GLint x, GLint y)
  * and the light will be used during all renders.
  */
 void initLights() {
-    // TODO make this a loop and loop over lights in scene.lights
-    GLfloat amb[] = { 1.0, 1.0, 1.0, 1.0 };
-    GLfloat diff[]= { 1.0f, 1.0f, 1.0f, 1.0f };
-    GLfloat spec[]= { 1.0f, 1.0f, 1.0f, 1.0f };
-    GLfloat lightpos[]= { 2.0f, 2.0f, 5.0f, 1.0f };
-    GLfloat shiny = 4.0f; 
+    for (unsigned i = 0; i < scene.lights.size(); i++)
+    {
+        const Light &light = scene.lights[i];
+        GLfloat amb[] = { 0.0f, 0.0f, 0.0f };
+        GLfloat diff[]= { light.color(0), light.color(1), light.color(2) };
+        GLfloat spec[]= { light.color(0), light.color(1), light.color(2) };
+        GLfloat lightpos[]= { light.position(0), light.position(1), light.position(2) };
+        // not specified in .iv file, just make it 1.0 
+        GLfloat shiny = 1.0f; 
 
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, amb);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diff);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, spec);
-    glLightfv(GL_LIGHT0, GL_POSITION, lightpos);
-    glLightf(GL_LIGHT0, GL_SHININESS, shiny);
-    glEnable(GL_LIGHT0);
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
+        glLightfv(GL_LIGHT0 + i, GL_AMBIENT, amb);
+        glLightfv(GL_LIGHT0 + i, GL_DIFFUSE, diff);
+        glLightfv(GL_LIGHT0 + i, GL_SPECULAR, spec);
+        glLightfv(GL_LIGHT0 + i, GL_POSITION, lightpos);
+        glLightf(GL_LIGHT0 + i, GL_SHININESS, shiny);
+        glEnable(GL_LIGHT0 + i);
+    }
 
     // Turn on lighting.  You can turn it off with a similar call to
     // glDisable().
@@ -105,12 +133,12 @@ void initLights() {
  * do this once.  If you want to use different materials, you'd need to do this
  * before every different one you wanted to use.
  */
-void initMaterial() {
+void initMaterial(const Material& mat) {
     GLfloat emit[] = {0.0, 0.0, 0.0, 1.0};
-    GLfloat  amb[] = {0.0, 0.0, 0.0, 1.0};
-    GLfloat diff[] = {0.0, 0.0, 1.0, 1.0};
-    GLfloat spec[] = {1.0, 1.0, 1.0, 1.0};
-    GLfloat shiny = 20.0f;
+    GLfloat  amb[] = {mat.ambientColor(0), mat.ambientColor(1), mat.ambientColor(2)};
+    GLfloat diff[] = {mat.diffuseColor(0), mat.diffuseColor(1), mat.diffuseColor(2)};
+    GLfloat spec[] = {mat.specularColor(0), mat.specularColor(1), mat.specularColor(2)};
+    GLfloat shiny = mat.shininess;
 
     glMaterialfv(GL_FRONT, GL_AMBIENT, amb);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, diff);
@@ -137,17 +165,28 @@ void initGL()
 
     const Camera& cam = scene.camera;
     
+    float mat[16];
     // Set up projection and modelview matrices ("camera" settings) 
     // Look up these functions to see what they're doing.
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     // take these params from scene.camera
     glFrustum(cam.left, cam.right, cam.bottom, cam.top, cam.nearDistance, cam.farDistance);
+
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     // change this to a transform for the camera
-    glRotatef(-cam.orientation(3), cam.orientation(0), cam.orientation(1), cam.orientation(2));
+    glRotatef(-cam.orientation(3) * 180.0 / M_PI, cam.orientation(0), cam.orientation(1), cam.orientation(2));
     glTranslatef(-cam.position(0), -cam.position(1), -cam.position(2));
+    glGetFloatv(GL_MODELVIEW_MATRIX, mat);
+
+    for (int i = 0; i < 16; i++)
+    {
+        if (i % 4 == 0 && i != 0)
+            std::cout << '\n';
+        std::cout << mat[i] << ' ';
+    }
+    std::cout << '\n';
 
     // set light parameters
     initLights();
@@ -160,6 +199,9 @@ void initGL()
  */
 int main(int argc, char* argv[])
 {
+    // TODO read this from args (also xdim ydim)
+    parse_file(std::cin, &scene);
+    
     // OpenGL will take out any arguments intended for its use here.
     // Useful ones are -display and -gldebug.
     glutInit(&argc, argv);
