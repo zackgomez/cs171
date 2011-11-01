@@ -221,6 +221,9 @@ void initLights() {
         glEnable(GL_LIGHT0 + i);
     }
 
+    GLfloat amb[] = { 1.0f, 1.0f, 1.0f };
+    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
+
     // Turn on lighting.  You can turn it off with a similar call to
     // glDisable().
     glEnable(GL_LIGHTING);
