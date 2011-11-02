@@ -2,8 +2,7 @@
 #include "GL/gl.h"
 #include "GL/glut.h"
 #include "parser.h"
-#include "transforms.h"
-
+#include "transforms.h" 
 void parse_file(std::istream &input, Scene *output);
 
 // Our scene
@@ -220,9 +219,6 @@ void initLights() {
         glLightfv(GL_LIGHT0 + i, GL_POSITION, lightpos);
         glEnable(GL_LIGHT0 + i);
     }
-
-    GLfloat amb[] = { 1.0f, 1.0f, 1.0f };
-    glLightModelfv(GL_LIGHT_MODEL_AMBIENT, amb);
 
     // Turn on lighting.  You can turn it off with a similar call to
     // glDisable().
