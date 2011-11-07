@@ -6,7 +6,11 @@
 #include <cassert>
 
 int mouseX, mouseY;
-int xRes, yRes;
+bool dragging;
+int dragIdx = -1;
+const float cpsize = 0.005;
+
+int winW, winH;
 
 std::vector<float> knotVector;
 std::vector<glm::vec2> cps;
@@ -34,41 +38,49 @@ void redraw()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Draw each of the cps
-    for (size_t i = 0; i < cps.size(); i++)
+    glBegin(GL_QUADS);
+    for (int i = 0; i < cps.size(); i++)
     {
         glm::vec2 pt = cps[i];
-        glBegin(GL_QUADS);
-            glVertex3f(pt.x - 0.01, pt.y - 0.01, 0.0);
-            glVertex3f(pt.x + 0.01, pt.y - 0.01, 0.0);
-            glVertex3f(pt.x + 0.01, pt.y + 0.01, 0.0);
-            glVertex3f(pt.x - 0.01, pt.y + 0.01, 0.0);
-        glEnd();
+        // Highlight the dragged cp
+        if (i == dragIdx)
+            glColor3f(1., 0.2, 0.2);
+        else 
+            glColor3f(1, 1, 1);
+
+        glVertex3f(pt.x - cpsize, pt.y - cpsize, 0.0);
+        glVertex3f(pt.x + cpsize, pt.y - cpsize, 0.0);
+        glVertex3f(pt.x + cpsize, pt.y + cpsize, 0.0);
+        glVertex3f(pt.x - cpsize, pt.y + cpsize, 0.0);
     }
+    glEnd();
 
     // Draw lines connecting the cps
     assert(cps.size() >= 2);
+    glColor3f(1.0, 1.0, 1.0);
+    glBegin(GL_LINES);
     for (size_t i = 0; i < cps.size() - 1; i++)
     {
         glm::vec2 pt = cps[i];
         glm::vec2 pt2 = cps[i+1];
-        glBegin(GL_LINES);
-            glVertex3f(pt.x, pt.y, 0.0f);
-            glVertex3f(pt2.x, pt2.y, 0.0f);
-        glEnd();
+
+        glVertex3f(pt.x, pt.y, 0.0f);
+        glVertex3f(pt2.x, pt2.y, 0.0f);
     }
+    glEnd();
 
     // Now draw the spline!
+    glBegin(GL_LINES);
+    glColor3f(0.3, 1.0, 0.3);
     for (float u = 0.0f; u < 1.0f-0.01f; u += 0.01)
     {
         glm::vec2 p0 = splineFunc(u);
         glm::vec2 p1 = splineFunc(u + 0.01);
 
-        std::cout << "p0 = [" << p0.x << ' ' << p0.y << "]\n";
-        glBegin(GL_LINES);
             glVertex3f(p0.x, p0.y, 0.0f);
             glVertex3f(p1.x, p1.y, 0.0f);
-        glEnd();
     }
+    glEnd();
 
     glutSwapBuffers();
 }
@@ -80,14 +92,9 @@ void redraw()
  */
 void resize(GLint w, GLint h)
 {
+    winW = w; winH = h;
     if (h == 0)
         h = 1;
-
-    // ensure that we are always square (even if whole window not used)
-    if (w > h)
-        w = h;
-    else
-        h = w;
 
     // Reset the current viewport and perspective transformation
     glViewport(0, 0, w, h);
@@ -110,10 +117,48 @@ void keyfunc(GLubyte key, GLint x, GLint y)
 
 void mousefunc(int button, int state, int x, int y)
 {
+    if (button == GLUT_LEFT_BUTTON)
+    {
+        dragging = (state == GLUT_DOWN);
+        if (!dragging) dragIdx = -1;
+        mouseX = x; mouseY = y;
+        if (dragging)
+        {
+            dragIdx = -1;
+            float xx = 1.0f * x / winW;
+            float yy = 1.0f - (1.0f * y / winH);
+            // Find the idx of the cp they're dragging, if it exists
+            for (size_t i = 0; i < cps.size(); i++)
+            {
+                glm::vec2 cp = cps[i];
+                if (xx > cp.x - cpsize && xx < cp.x + cpsize &&
+                    yy > cp.y - cpsize && yy < cp.y + cpsize)
+                {
+                    dragIdx = i;
+                    break;
+                }
+            }
+            // Only dragging if they are clicking on a cp
+            dragging = (dragIdx != -1);
+        }
+    }
+
+    std::cout << "DRAG INDEX: " << dragIdx << '\n';
+    glutPostRedisplay();
 }
 
 void motionfunc(int x, int y)
 {
+    float xx = 1.0f * x / winW;
+    float yy = 1.0f - (1.0f * y / winH);
+
+    if (dragging)
+    {
+        assert(dragIdx != -1);
+        cps[dragIdx] =  glm::vec2(xx, yy);
+    }
+
+    glutPostRedisplay();
 }
 
 /** Utility functions **/
@@ -160,8 +205,8 @@ int main(int argc, char* argv[])
         std::cout << "usage: " << argv[0] << " <xRes> <yRes>\n";
         exit(1);
     }
-    xRes = atoi(argv[1]);
-    yRes = atoi(argv[2]);
+    int xRes = atoi(argv[1]);
+    int yRes = atoi(argv[2]);
     if (xRes == 0 || yRes == 0)
     {
         std::cout << "usage: " << argv[0] << " <xRes> <yRes>\n";
