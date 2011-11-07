@@ -1,1 +1,8 @@
+I use a new matrix library in this assignment : glm
+It aims to model glsl style vector/matrix notation.  It's pretty sweet.
 
+Features:
+NURBS Editing
+Highlight current Control Point being dragged
+"Display mode" toggle by SPACEBAR
+Simple implementation of adaptive t

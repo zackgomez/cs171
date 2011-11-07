@@ -10,6 +10,7 @@ bool dragging;
 int dragIdx = -1;
 const float cpsize = 0.005;
 int k = 4;
+bool editMode = true;
 
 int winW, winH;
 
@@ -39,50 +40,71 @@ void redraw()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // Draw each of the cps
-    glBegin(GL_QUADS);
-    for (int i = 0; i < cps.size(); i++)
+    if (editMode)
     {
-        glm::vec2 pt = cps[i];
-        // Highlight the dragged cp
-        if (i == dragIdx)
-            glColor3f(1., 0.2, 0.2);
-        else 
-            glColor3f(1, 1, 1);
+        // Draw each of the cps
+        glBegin(GL_QUADS);
+        for (int i = 0; i < cps.size(); i++)
+        {
+            glm::vec2 pt = cps[i];
+            // Highlight the dragged cp
+            if (i == dragIdx)
+                glColor3f(1., 0.2, 0.2);
+            else 
+                glColor3f(1, 1, 1);
 
-        glVertex3f(pt.x - cpsize, pt.y - cpsize, 0.0);
-        glVertex3f(pt.x + cpsize, pt.y - cpsize, 0.0);
-        glVertex3f(pt.x + cpsize, pt.y + cpsize, 0.0);
-        glVertex3f(pt.x - cpsize, pt.y + cpsize, 0.0);
+            glVertex3f(pt.x - cpsize, pt.y - cpsize, 0.0);
+            glVertex3f(pt.x + cpsize, pt.y - cpsize, 0.0);
+            glVertex3f(pt.x + cpsize, pt.y + cpsize, 0.0);
+            glVertex3f(pt.x - cpsize, pt.y + cpsize, 0.0);
+        }
+        glEnd();
+
+        // Draw lines connecting the cps
+        assert(cps.size() >= 2);
+        glColor3f(1.0, 1.0, 1.0);
+        glBegin(GL_LINES);
+        for (size_t i = 0; i < cps.size() - 1; i++)
+        {
+            glm::vec2 pt = cps[i];
+            glm::vec2 pt2 = cps[i+1];
+
+            glVertex3f(pt.x, pt.y, 0.0f);
+            glVertex3f(pt2.x, pt2.y, 0.0f);
+        }
+        glEnd();
     }
-    glEnd();
-
-    // Draw lines connecting the cps
-    assert(cps.size() >= 2);
-    glColor3f(1.0, 1.0, 1.0);
-    glBegin(GL_LINES);
-    for (size_t i = 0; i < cps.size() - 1; i++)
-    {
-        glm::vec2 pt = cps[i];
-        glm::vec2 pt2 = cps[i+1];
-
-        glVertex3f(pt.x, pt.y, 0.0f);
-        glVertex3f(pt2.x, pt2.y, 0.0f);
-    }
-    glEnd();
 
     // Now draw the spline!
     glBegin(GL_LINES);
     glColor3f(0.3, 1.0, 0.3);
-    for (float u = 0.0f; u < 1.0f-0.01f; u += 0.01)
+    float dt = 0.01;
+    float maxdist = 1.0 / (std::max(winW, winH));
+    for (float u = 0.0f; u < 1.0f-dt; u += dt)
     {
         glm::vec2 p0 = splineFunc(u);
-        glm::vec2 p1 = splineFunc(u + 0.01);
+        glm::vec2 p1 = splineFunc(u + dt);
+
+        float dist = glm::length(p1 - p0);
+
+        if (dist < maxdist)
+        {
+            dt *= 1.5;
+            p1 = splineFunc(std::min(u + dt, 1.0f));
+        }
+        else
+            while (dist > maxdist)
+            {
+                dt /= 2;
+                p1 = splineFunc(u + dt);
+                dist = glm::length(p1 - p0);
+            }
+
+        if (p1.x == 0 && p1.y == 0)
+            continue;
 
         glVertex3f(p0.x, p0.y, 0.0f);
         glVertex3f(p1.x, p1.y, 0.0f);
-
-        std::cout << "p0 = " << p0.x << ' ' << p0.y << '\n';
     }
     glEnd();
 
@@ -117,10 +139,15 @@ void keyfunc(GLubyte key, GLint x, GLint y)
     // escape or q or Q
     if (key == 27 || key == 'q' || key =='Q')
         exit(0);
+    if (key == ' ')
+        editMode = !editMode;
+    glutPostRedisplay();
 }
 
 void mousefunc(int button, int state, int x, int y)
 {
+    if (!editMode)
+        return;
     float xx = 1.0f * x / winW;
     float yy = 1.0f - (1.0f * y / winH);
     if (button == GLUT_LEFT_BUTTON)
@@ -170,12 +197,13 @@ void mousefunc(int button, int state, int x, int y)
         insertKnot(t);
     }
 
-    std::cout << "DRAG INDEX: " << dragIdx << '\n';
     glutPostRedisplay();
 }
 
 void motionfunc(int x, int y)
 {
+    if (!editMode)
+        return;
     float xx = 1.0f * x / winW;
     float yy = 1.0f - (1.0f * y / winH);
 
@@ -208,11 +236,6 @@ void initNURBS()
 {
     float knot0[] = {0, 0, 0, 0, 1, 1, 1, 1};
     knotVector.assign(knot0, knot0+8);
-
-    std::cout << "initial knot vector: ";
-    for (size_t i = 0; i < knotVector.size(); i++)
-        std::cout << knotVector[i] << ' ';
-    std::cout << '\n';
 
     cps.push_back(glm::vec2(.1, .9));
     cps.push_back(glm::vec2(.1, .1));
@@ -273,6 +296,7 @@ int main(int argc, char* argv[])
 
 glm::vec2 splineFunc(float u)
 {
+    if (u > 1) u = 1;
     assert(u >= 0 && u <= 1);
     glm::vec2 result(0.0f);
     for (size_t i = 0; i < cps.size(); i++)
@@ -325,7 +349,6 @@ void insertKnot(float u)
         float a;
         if (i <= j - k)
         {
-            std::cout << "A1\n";
             a = 1;
         }
         else if (i <= j && i >= j - k + 1)
@@ -336,25 +359,8 @@ void insertKnot(float u)
         else
             a = 0;
 
-        std::cout << "k: " << k << "  j: " << j << "  i: " << i << "  a: " << a << '\n';
         newcps[i] = ((1 - a) * cps[i-1]) + (a * cps[i]);
     }
 
-    std::cout << "Old cps: ";
-    for (size_t i = 0; i < cps.size(); i++)
-        std::cout << '[' << cps[i].x << ' ' << cps[i].y << "] ";
-    std::cout << '\n';
-
     cps = newcps;
-
-    std::cout << "New cps: ";
-    for (size_t i = 0; i < cps.size(); i++)
-        std::cout << '[' << cps[i].x << ' ' << cps[i].y << "] ";
-    std::cout << '\n';
-
-
-    std::cout << "New knots: < ";
-    for (size_t i = 0; i < knotVector.size(); i++)
-        std::cout << knotVector[i] << ' ';
-    std::cout << ">\n";
 }
