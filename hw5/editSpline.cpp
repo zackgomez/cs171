@@ -9,6 +9,7 @@ int mouseX, mouseY;
 bool dragging;
 int dragIdx = -1;
 const float cpsize = 0.005;
+int k = 4;
 
 int winW, winH;
 
@@ -23,6 +24,7 @@ void keyfunc(GLubyte key, GLint x, GLint y);
 
 glm::vec2 splineFunc(float u);
 float coxDeBoor(int i, int k, float u);
+void insertKnot(float u);
 
 /** GLUT callback functions **/
 
@@ -77,8 +79,10 @@ void redraw()
         glm::vec2 p0 = splineFunc(u);
         glm::vec2 p1 = splineFunc(u + 0.01);
 
-            glVertex3f(p0.x, p0.y, 0.0f);
-            glVertex3f(p1.x, p1.y, 0.0f);
+        glVertex3f(p0.x, p0.y, 0.0f);
+        glVertex3f(p1.x, p1.y, 0.0f);
+
+        std::cout << "p0 = " << p0.x << ' ' << p0.y << '\n';
     }
     glEnd();
 
@@ -117,6 +121,8 @@ void keyfunc(GLubyte key, GLint x, GLint y)
 
 void mousefunc(int button, int state, int x, int y)
 {
+    float xx = 1.0f * x / winW;
+    float yy = 1.0f - (1.0f * y / winH);
     if (button == GLUT_LEFT_BUTTON)
     {
         dragging = (state == GLUT_DOWN);
@@ -125,8 +131,6 @@ void mousefunc(int button, int state, int x, int y)
         if (dragging)
         {
             dragIdx = -1;
-            float xx = 1.0f * x / winW;
-            float yy = 1.0f - (1.0f * y / winH);
             // Find the idx of the cp they're dragging, if it exists
             for (size_t i = 0; i < cps.size(); i++)
             {
@@ -141,6 +145,29 @@ void mousefunc(int button, int state, int x, int y)
             // Only dragging if they are clicking on a cp
             dragging = (dragIdx != -1);
         }
+    }
+
+    // When they release the right button, add a new knot
+    if (button == GLUT_RIGHT_BUTTON && state == GLUT_UP)
+    {
+        float t = -1;
+        float mindist = HUGE_VAL;
+        glm::vec2 click(xx, yy);
+        // XXX: Wowzers this is a slow way to do this, better to cache some shit
+        // Find the 't' value for the new knot
+        for (float u = 0.0; u < 1.0 - 0.01f; u += 0.01f)
+        {
+            glm::vec2 pt = splineFunc(u);
+            float curdist = glm::length(pt - click);
+            if (curdist < mindist)
+            {
+                mindist = curdist;
+                t = u;
+            }
+        }
+
+        // Add knot
+        insertKnot(t);
     }
 
     std::cout << "DRAG INDEX: " << dragIdx << '\n';
@@ -247,7 +274,6 @@ int main(int argc, char* argv[])
 glm::vec2 splineFunc(float u)
 {
     assert(u >= 0 && u <= 1);
-    const int k = 4;
     glm::vec2 result(0.0f);
     for (size_t i = 0; i < cps.size(); i++)
     {
@@ -261,7 +287,7 @@ glm::vec2 splineFunc(float u)
 float coxDeBoor(int i, int k, float u)
 {
     if (k == 1)
-        return (i >= knotVector[i] && u < knotVector[i+1]) ? 1 : 0;
+        return (u >= knotVector[i] && u < knotVector[i+1]) ? 1 : 0;
 
     float adenom = (knotVector[i+k-1] - knotVector[i]);
     float bdenom = (knotVector[i+k] - knotVector[i+1]);
@@ -272,3 +298,63 @@ float coxDeBoor(int i, int k, float u)
     return a + b;
 }
 
+void insertKnot(float u)
+{
+    assert(u > 0 && u < 1);
+    std::vector<glm::vec2> newcps(cps.size() + 1);
+    // p'0 = p0
+    newcps[0] = cps[0];
+    // p'n+1 = p'n
+    newcps[cps.size()] = cps[cps.size() - 1];
+
+    // Make new knot vector
+    int j = -1;
+    for (std::vector<float>::iterator it = knotVector.begin();
+            it != knotVector.end(); it++, j++)
+    {
+        if (u < *it)
+        {
+            knotVector.insert(it, u);
+            break;
+        }
+    }
+
+    // Fill in new cps
+    for (int i = 1; i < cps.size(); i++)
+    {
+        float a;
+        if (i <= j - k)
+        {
+            std::cout << "A1\n";
+            a = 1;
+        }
+        else if (i <= j && i >= j - k + 1)
+        {
+            float adenom = knotVector[i+k] - knotVector[i];
+            a = adenom == 0 ? 0 : (u - knotVector[i]) / adenom;
+        }
+        else
+            a = 0;
+
+        std::cout << "k: " << k << "  j: " << j << "  i: " << i << "  a: " << a << '\n';
+        newcps[i] = ((1 - a) * cps[i-1]) + (a * cps[i]);
+    }
+
+    std::cout << "Old cps: ";
+    for (size_t i = 0; i < cps.size(); i++)
+        std::cout << '[' << cps[i].x << ' ' << cps[i].y << "] ";
+    std::cout << '\n';
+
+    cps = newcps;
+
+    std::cout << "New cps: ";
+    for (size_t i = 0; i < cps.size(); i++)
+        std::cout << '[' << cps[i].x << ' ' << cps[i].y << "] ";
+    std::cout << '\n';
+
+
+    std::cout << "New knots: < ";
+    for (size_t i = 0; i < knotVector.size(); i++)
+        std::cout << knotVector[i] << ' ';
+    std::cout << ">\n";
+}
