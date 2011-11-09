@@ -276,6 +276,14 @@ int main(int argc, char* argv[])
     glutInitWindowPosition(300, 100);
 
     glutCreateWindow("CS171 HW5 - Zack Gomez");
+
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_BLEND);
+    glBlendEquation(GL_FUNC_ADD);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_POINT_SMOOTH);
+    glEnable(GL_LINE_SMOOTH);
+    glLineWidth(2);
     
     initGL();
     initNURBS();

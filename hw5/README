@@ -6,3 +6,11 @@ NURBS Editing
 Highlight current Control Point being dragged
 "Display mode" toggle by SPACEBAR
 Simple implementation of adaptive t
+Line anti aliasing
+
+
+
+Running
+
+make
+./editSplie 500 500
