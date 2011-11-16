@@ -10,9 +10,18 @@ void parse_file(std::istream &input, Scene *output);
 // Our scene
 Scene scene;
 std::vector<GLuint> textures;
+GLuint skytex;
+const static int GRID_SIZE = 150;
+
+float heightmap[GRID_SIZE * GRID_SIZE];
+float gridnorms[3 * GRID_SIZE * GRID_SIZE];
+
 bool wireframe;
 bool translating, zooming, rotating;
 int mouseX, mouseY;
+
+const float dt = 0.13;
+float t;
 
 Vector3 mouseTrans;
 Matrix4 mouseRot;
@@ -23,6 +32,7 @@ void redraw();
 void initGL();
 void resize(GLint w, GLint h);
 void keyfunc(GLubyte key, GLint x, GLint y);
+void updateGrid(float t);
 
 /** GLUT callback functions **/
 
@@ -95,6 +105,37 @@ void redraw()
 
         glPopMatrix();
     }
+
+    // Render the water
+    glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
+    glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_SPHERE_MAP);
+    glEnable(GL_TEXTURE_GEN_S);
+    glEnable(GL_TEXTURE_GEN_T);
+    glBindTexture(GL_TEXTURE_2D, skytex);
+
+    GLenum renderType = wireframe ? GL_LINE_STRIP : GL_TRIANGLE_STRIP;
+    // Draw grid
+    updateGrid(t);
+    for (int y = 0; y < GRID_SIZE - 1; y++)
+    {
+        glBegin(renderType);
+        for (int x = 0; x < GRID_SIZE; x++)
+        {
+            float xx = (static_cast<float>(x) / GRID_SIZE - 0.5) * 5;
+            float yy = (static_cast<float>(y) / GRID_SIZE - 0.5) * 5;
+            glNormal3fv(&gridnorms[3 * (x + y*GRID_SIZE)]);
+            glVertex3f(xx, heightmap[x + y * GRID_SIZE], yy);
+
+            xx = (static_cast<float>(x) / GRID_SIZE - 0.5) * 5;
+            yy = (static_cast<float>(y+1) / GRID_SIZE - 0.5) * 5;
+            glNormal3fv(&gridnorms[3 * (x + (y+1)*GRID_SIZE)]);
+            glVertex3f(xx, heightmap[x + (y+1) * GRID_SIZE], yy);
+        }
+        glEnd();
+    }
+    glDisable(GL_TEXTURE_GEN_S);
+    glDisable(GL_TEXTURE_GEN_T);
+
     glPopMatrix();
 
     glutSwapBuffers();
@@ -201,6 +242,12 @@ void motionfunc(int x, int y)
     }
 }
 
+void idlefunc()
+{
+    t += dt;
+    glutPostRedisplay();
+}
+
 
 /**
  * Set up OpenGL state.  This does everything so when we draw we only need to
@@ -254,6 +301,37 @@ void loadTextures()
 
         textures.push_back(tex);
     }
+
+    skytex = make_texture("sky.tga");
+    assert(skytex);
+}
+
+void updateGrid(float t)
+{
+    for (int i = 0; i < GRID_SIZE * GRID_SIZE; i++)
+    {
+        float x = static_cast<float>(i % GRID_SIZE) / GRID_SIZE - 0.5;
+        float y = static_cast<float>(i / GRID_SIZE) / GRID_SIZE - 0.5;
+
+        const float a = 50 * M_PI;
+        const float h = 0.05;
+
+        heightmap[i] = h * cos(a * (x*x + y*y) - t) - 1;
+
+        float dx = -sin(a * (x*x + y*y) - t) * 2 * x;
+        float dz = -sin(a * (x*x + y*y) - t) * 2 * y;
+
+        float nx = dz;
+        float ny = -dx*dz;
+        float nz = dx;
+
+        float len = sqrtf(nx * nx + ny * ny + nz * nz);
+        nx /= len; ny /= len; nz /= len;
+
+        gridnorms[3*i]     = nx;
+        gridnorms[3*i + 1] = ny;
+        gridnorms[3*i + 2] = nz;
+    }
 }
 
 /**
@@ -301,6 +379,7 @@ int main(int argc, char* argv[])
     glutKeyboardFunc(keyfunc);
     glutMouseFunc(mousefunc);
     glutMotionFunc(motionfunc);
+    glutIdleFunc(idlefunc);
 
     // From here on, GLUT has control,
     glutMainLoop();
