@@ -512,7 +512,7 @@ Separator {
    }
 
    Texture2 {
-      filename diffuse.png
+      filename diffuse.tga
    }
    IndexedFaceSet {
 # 340 triangles
@@ -1702,7 +1702,7 @@ Separator {
    }
 
    Texture2 {
-      filename wheelskin.png
+      filename wheelskin.tga
    }
    IndexedFaceSet {
 # 44 triangles
@@ -2301,7 +2301,7 @@ Separator {
    }
 
    Texture2 {
-      filename wheelskin.png
+      filename wheelskin.tga
    }
    IndexedFaceSet {
 # 44 triangles
@@ -2900,7 +2900,7 @@ Separator {
    }
 
    Texture2 {
-      filename wheelskin.png
+      filename wheelskin.tga
    }
    IndexedFaceSet {
 # 44 triangles
@@ -3499,7 +3499,7 @@ Separator {
    }
 
    Texture2 {
-      filename wheelskin.png
+      filename wheelskin.tga
    }
    IndexedFaceSet {
 # 44 triangles

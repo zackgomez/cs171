@@ -19,8 +19,6 @@ Matrix4 mouseRot;
 float mouseZoom;
 
 /** PROTOTYPES **/
-void initLights();
-void initMaterial(const Material &mat);
 void redraw();
 void initGL();
 void resize(GLint w, GLint h);
@@ -55,6 +53,7 @@ void redraw()
     glMultMatrixf(oldMatrix);
 
    
+    glEnable(GL_TEXTURE_2D);
     
     for (unsigned i = 0; i < scene.separators.size(); i++)
     {
@@ -71,26 +70,27 @@ void redraw()
 
         GLenum renderType = wireframe ? GL_LINE_LOOP : GL_POLYGON;
 
-        glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, textures[i]);
+
         glBegin(renderType);
         for (unsigned j = 0; j < sep.indices.size(); j++)
         {
             int idx = sep.indices[j];
-            int texidx = sep.texindices[j];
+            int texind = sep.texindices[j];
             if (idx == -1)
             {
+                assert(texind == -1);
                 glEnd();
                 glBegin(renderType);
                 continue;
             }
 
             Vector3 pt = sep.points[idx];
-            Vector2 uv = sep.texcoords[texidx];
+            Vector2 uv = sep.texcoords[texind];
             glTexCoord2f(uv(0), uv(1));
             glVertex3f(pt(0), pt(1), pt(2));
-        }
 
+        }
         glEnd();
 
         glPopMatrix();
@@ -201,6 +201,7 @@ void motionfunc(int x, int y)
     }
 }
 
+
 /**
  * Set up OpenGL state.  This does everything so when we draw we only need to
  * actually draw the sphere, and OpenGL remembers all of our other settings.
@@ -238,26 +239,19 @@ void initGL()
     mouseRot = make_identity<float, 4>();
 }
 
-GLuint loadTexture(std::string filename)
+void loadTextures()
 {
-    return 0;
-}
-
-void initScene()
-{
-    parse_file(std::cin, &scene);
-
-    // Now we need to load each texture file
     for (int i = 0; i < scene.separators.size(); i++)
     {
         const char *filename = scene.separators[i].texture.c_str();
+
         GLuint tex = make_texture(filename);
         if (!tex)
         {
-            std::cerr << "Unable to load texture in filename " << filename << '\n';
-            std::cerr << "Texture: " << tex << '\n';
+            std::cerr << "Unable to load texture in " << filename << '\n';
             exit(1);
         }
+
         textures.push_back(tex);
     }
 }
@@ -281,7 +275,8 @@ int main(int argc, char* argv[])
         std::cout << "usage: " << argv[0] << " <xRes> <yRes> < <iv-file>\n";
         exit(1);
     }
-
+    parse_file(std::cin, &scene);
+    
     // OpenGL will take out any arguments intended for its use here.
     // Useful ones are -display and -gldebug.
     glutInit(&argc, argv);
@@ -294,11 +289,11 @@ int main(int argc, char* argv[])
     glutInitWindowSize(xdim, ydim);
     glutInitWindowPosition(300, 100);
 
-    glutCreateWindow("CS171 HW4 - Zack Gomez");
+    glutCreateWindow("CS171 HW6 - Zack Gomez");
     
     initGL();
-    initScene();
 
+    loadTextures();
 
     // set up GLUT callbacks.
     glutDisplayFunc(redraw);
