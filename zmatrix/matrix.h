@@ -332,6 +332,7 @@ const Matrix<T,N,N> make_identity()
 }
 
 typedef float data_t;
+typedef Matrix<data_t, 2, 1> Vector2;
 typedef Matrix<data_t, 3, 1> Vector3;
 typedef Matrix<data_t, 4, 1> Vector4;
 typedef Matrix<data_t, 3, 3> Matrix3;
