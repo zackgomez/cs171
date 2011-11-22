@@ -1,0 +1,69 @@
+%{
+#include <FlexLexer.h>
+#include <iostream>
+#include <cstring>
+#include "parser.h"
+
+int yyerror(const char *s);
+int yylex();
+
+static animation *anim;
+static keyframe kf;
+
+%}
+
+%union
+{
+    float fval;
+}
+
+%defines
+
+%token <fval> NUMBER
+%token FRAME TRANSLATION SCALE ROTATION
+
+%%
+file:
+    NUMBER frames { assert($1 == static_cast<int>($1)); anim->nframes = $1; };
+
+frames:
+    frame | frame frames ;
+
+frame:
+    FRAME NUMBER transforms {kf.framenum = $2; anim->keyframes.push_back(kf); };
+
+transforms:
+    transform | transform transforms ;
+
+transform:
+    TRANSLATION NUMBER NUMBER NUMBER { kf.translation = glm::vec3($2, $3, $4); }
+    | SCALE NUMBER NUMBER NUMBER { kf.scale = glm::vec3($2, $3, $4); }
+    | ROTATION NUMBER NUMBER NUMBER NUMBER { kf.rotation = glm::vec4($2, $3, $4, $5); }
+%%
+
+static FlexLexer *lexer;
+
+int yyerror(const char *s)
+{
+    std::cerr << "Parse error: " << s << std::endl;
+    return 0;
+}
+
+int yylex()
+{
+    return lexer->yylex();
+}
+
+void parse_file(std::istream &input, animation *output)
+{
+    lexer = new yyFlexLexer(&input);
+    anim = output;
+
+    if (yyparse())
+    {
+        std::cerr << "Parse Failed!" << std::endl;
+        exit(1);
+    }
+
+    delete lexer;
+}
