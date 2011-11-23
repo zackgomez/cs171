@@ -1,1 +1,6 @@
+I did the keyframing lab.
 
+All the keyboard commands should work.  I used catmull-rom for interpolation
+between keyframes.  I draw a colored ibar like in the lab writeup.
+
+sweet.
