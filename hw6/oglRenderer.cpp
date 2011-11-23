@@ -11,7 +11,7 @@ void parse_file(std::istream &input, Scene *output);
 Scene scene;
 std::vector<GLuint> textures;
 GLuint skytex;
-const static int GRID_SIZE = 150;
+const static int GRID_SIZE = 256;
 
 float heightmap[GRID_SIZE * GRID_SIZE];
 float gridnorms[3 * GRID_SIZE * GRID_SIZE];
