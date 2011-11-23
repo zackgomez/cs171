@@ -57,27 +57,63 @@ void redraw()
     glutSwapBuffers();
 }
 
-keyframe interpolate(int frame, keyframe prev, keyframe next)
+keyframe computeTangent(keyframe prev, keyframe cur, keyframe next)
+{
+    float dx1 = cur.framenum - prev.framenum;
+    float dx2 = next.framenum - cur.framenum;
+
+    std::cout << dx1 << ' ' << dx2 << '\n';
+
+    keyframe ret;
+    ret.translation = 0.5f * (cur.translation - prev.translation) / dx1
+                    + 0.5f * (next.translation - cur.translation) / dx2;
+    ret.rotation = 0.5f * (cur.rotation - prev.rotation) / dx1
+                 + 0.5f * (next.rotation - cur.rotation) / dx2;
+    ret.scale = 0.5f * (cur.scale - prev.scale) / dx1
+              + 0.5f * (next.scale - cur.scale) / dx2;
+
+    return ret;
+}
+
+
+template<typename T>
+T interpolateFunc(float u, const T &prev, const T &next, const T &kp0, const T &kp1)
+{
+    T res = prev * (2 * u*u*u - 3*u*u + 1) +
+            next * (3*u*u - 2*u*u*u) +
+            kp0  * (u*u*u - 2*u*u + u) +
+            kp1  * (u*u*u - u*u);
+    return res;
+}
+
+keyframe interpolate(int frame, keyframe prev, keyframe next, keyframe pprev, keyframe nnext)
 {
     float u = static_cast<float>(frame - prev.framenum) / (next.framenum - prev.framenum);
     u = std::max(std::min(u, 1.f), 0.f);
 
-    /*
     std::cout << "Interpolating between " << prev.framenum << " and " << next.framenum
-        << " at frame " << frame << " using factor " << u << '\n';
-        */
+        << " at frame " << frame << " using factor " << u
+        << " and t-1 t+1 = " << pprev.framenum << ' ' << nnext.framenum << '\n';
 
-    glm::vec4 prevquat = getquat(prev.rotation);
-    glm::vec4 nextquat = getquat(next.rotation);
-    glm::vec4 interquat = u * nextquat + (1 - u) * prevquat;
+    prev.rotation = getquat(prev.rotation);
+    next.rotation = getquat(next.rotation);
+    pprev.rotation = getquat(pprev.rotation);
+    nnext.rotation = getquat(nnext.rotation);
+
+    keyframe tan0 = computeTangent(pprev, prev, next);
+    keyframe tan1 = computeTangent(prev, next, nnext);
+
+
+
+    glm::vec4 interquat = interpolateFunc(u, prev.rotation, next.rotation, tan0.rotation, tan1.rotation);
     interquat /= glm::length(interquat);
     glm::vec4 interrot = glm::vec4(interquat[1], interquat[2], interquat[3],
             2*acos(interquat[0]) / M_PI * 180.f);
 
     keyframe ret;
     ret.framenum = frame;
-    ret.translation = (1 - u) * prev.translation + u * next.translation;
-    ret.scale = (1 - u) * prev.scale + u * next.scale;
+    ret.translation = interpolateFunc(u, prev.translation, next.translation, tan0.translation, tan1.translation);
+    ret.scale = interpolateFunc(u, prev.scale, next.scale, tan0.scale, tan1.scale);
     ret.rotation = interrot;
 
     return ret;
@@ -98,18 +134,20 @@ void set_pose(int frame)
     // iterate through the frames and find the 'last' frame
     keyframe last;
     keyframe next;
+    keyframe llast;
+    keyframe nnext;
     for (int i = 1; i < anim.keyframes.size(); i++)
     {
+        llast = anim.keyframes[(i-2 + anim.keyframes.size()) % anim.keyframes.size()];
         last = anim.keyframes[i - 1];
         next = anim.keyframes[i];
+        nnext = anim.keyframes[(i+1) % anim.keyframes.size()];
         
         if (frame >= last.framenum && frame < next.framenum)
             break;
     }
 
-    std::cout << "Camera [r, angle] = [" << camR << ' ' << camAngle << "]\n";
-
-    keyframe kf = interpolate(frame, last, next);
+    keyframe kf = interpolate(frame, last, next, llast, nnext);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -317,6 +355,7 @@ int main(int argc, char* argv[])
     
     initGL();
 
+    std::cout << "-1 mod 5 = " << (-1 % 5) << '\n';
 
     // set up GLUT callbacks.
     glutDisplayFunc(redraw);
