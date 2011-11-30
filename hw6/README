@@ -1,1 +1,10 @@
+I converted the .PNG images to .tga to use code I wrote/borrowed for a game 
+project of mine.
 
+I use a grid and change the positions according to the function
+    h * cos(a * (x^2 + y^2) - t)
+to compute the normals I take the x/y derivative and cross.  Easy Peasy.
+
+Texturing is pretty simple, nothing interesting there.
+
+W changes to/from wireframe rendering.

@@ -21,6 +21,9 @@ const float camAngleDel = 5;
 bool playing;
 bool loop;
 
+bool seeking;
+int seekframe; // The frame the user is typing in to seek to
+
 // Parser function
 void parse_file(std::istream &is, animation *output);
 void print_animation(animation *anim);
@@ -62,8 +65,6 @@ keyframe computeTangent(keyframe prev, keyframe cur, keyframe next)
     float dx1 = cur.framenum - prev.framenum;
     float dx2 = next.framenum - cur.framenum;
 
-    std::cout << dx1 << ' ' << dx2 << '\n';
-
     keyframe ret;
     ret.translation = 0.5f * (cur.translation - prev.translation) / dx1
                     + 0.5f * (next.translation - cur.translation) / dx2;
@@ -91,9 +92,11 @@ keyframe interpolate(int frame, keyframe prev, keyframe next, keyframe pprev, ke
     float u = static_cast<float>(frame - prev.framenum) / (next.framenum - prev.framenum);
     u = std::max(std::min(u, 1.f), 0.f);
 
+    /*
     std::cout << "Interpolating between " << prev.framenum << " and " << next.framenum
         << " at frame " << frame << " using factor " << u
         << " and t-1 t+1 = " << pprev.framenum << ' ' << nnext.framenum << '\n';
+        */
 
     prev.rotation = getquat(prev.rotation);
     next.rotation = getquat(next.rotation);
@@ -232,7 +235,24 @@ void keyfunc(GLubyte key, GLint x, GLint y)
         curframe -= 1;
     if (key == 'L' || key == 'l')
         loop = !loop;
-    if (key == '0')
+    if (key == 'J' || key == 'j')
+    {
+        if (seeking)
+        {
+            curframe = seekframe % anim.nframes;
+            seeking = false;
+            std::cout << "setting frame to " << curframe << '\n';
+        }
+        else
+        {
+            seeking = true;
+            seekframe = 0;
+            std::cout << "grabbing input\n";
+        }
+    }
+    if (seeking && key >= '0' && key <= '9')
+        seekframe = seekframe * 10 + (key - '0');
+    if (!seeking && key == '0')
         curframe = 0;
 
     if (loop)
