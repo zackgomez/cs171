@@ -1,0 +1,6 @@
+I use a simple sphere mapping for environment mapping taken from some page on
+ozone3d.  For the 'per fragment' computation I do the entire computation over
+again.
+
+
+I use 3 keys, q/ESC to quit, and 'f' to toggle per fragment calculation.
