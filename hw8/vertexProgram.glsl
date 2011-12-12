@@ -2,7 +2,7 @@ uniform float t;
 uniform int perFragCalc;
 
 const float h = 0.09;
-const float a = 7;
+const float a = 7.;
 const float speed = 2.5;
 varying vec2 coord;
 
@@ -30,7 +30,7 @@ void main()
    vec3 norm = normalize(gl_NormalMatrix * normal);
    vec3 outVec = reflect(cam, norm);
 
-   float m = 2.0*sqrt(outVec.x * outVec.x + outVec.y * outVec.y + (outVec.z + 1) * (outVec.z + 1));
+   float m = 2.*sqrt(outVec.x * outVec.x + outVec.y * outVec.y + (outVec.z + 1.) * (outVec.z + 1.));
 
    // Put the leaf coords in gl_TexCoord[0]
    gl_TexCoord[0].x = u;
